@@ -1,4 +1,7 @@
 # Meteorological sensor measurement with RPI Pico 2W and web visualization.
+
+This project is based from IoT Starters blog [Connecting BMP280 sensor with Raspberry Pi Pico W](https://iotstarters.com/connecting-bmp280-sensor-with-raspberry-pi-pico-w/)
+
 Sensors: 
 - DTH22: Temperature and humidity
 - AHT20 + BMP280: Temperature and atmospheric pressure
