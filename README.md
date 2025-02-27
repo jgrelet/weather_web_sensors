@@ -11,24 +11,28 @@ This project is based from IoT Starters blog [Connecting BMP280 sensor with Rasp
 - [Thonny](https://thonny.org/) IDE
 - [Micropython](https://micropython.org/download/RPI_PICO2_W/)
 
-## Wifi configuration
+## Wlan configuration
 
-Define your wifi ssid and password in [config.py](https://github.com/jgrelet/weather_web_sensors/blob/main/config.py) file
+Define your Wifi ssid and password in [config.py](https://github.com/jgrelet/weather_web_sensors/blob/main/config.py) file
 
 ## Connect sensors to Pico 2w
+
+### Diagram
+
+![image](https://github.com/user-attachments/assets/89be49a1-b381-4cd1-b109-21f744a02b64)
 
 ### AHT20 + BMP280 
 
 - VDD -> Pin36  (3.3v)
 - GND -> Pin3
-- SDA -> Pin1 (GPIO0)
-- SCL -> Pin2 (GPIO1)
+- SDA -> Pin1 (GP0)
+- SCL -> Pin2 (GP1)
 
 ### DHT22
 
 - VCC -> Pin36  (3.3v)
 - GND -> Pin3
-- DAT -> Pin17 (GPIO13)
+- DAT -> Pin17 (GP13)
 
 ![image](https://github.com/user-attachments/assets/dd9a2923-c1ae-4107-bdb5-fe882f0aea93)
 
