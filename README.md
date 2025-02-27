@@ -12,7 +12,7 @@ This project is based from IoT Starters blog [Connecting BMP280 sensor with Rasp
 - [Micropython](https://micropython.org/download/RPI_PICO2_W/)
 
 ## Wifi configuration
-Define your wifi ssid and password in config.py file
+Define your wifi ssid and password in [config.py](https://github.com/jgrelet/weather_web_sensors/blob/main/config.py) file
 
 ## AHT20 + BMP280 
 Connect the sensor to Pico 2w
@@ -42,7 +42,7 @@ Decimal address:  119  | Hexa address:  0x77
 ```
 
 ## Testing
-Edit and run main_terminal to check all sensors
+Edit and run main_terminal to check all sensors in text mode
 ``` bash
 MPY: soft reboot
 Temperature : 23.0°C
@@ -50,12 +50,13 @@ Humidity    : 47%
 Temperature : 23.5 °C, pressure: 1008.5 hPa.
 ```
 Run main.py 
+
 ``` bash
 MPY: soft reboot
 Connection successful
 Connected on 192.168.1.36
 ```
-Open web page on the adress given below:
+Now copy the IP address into your web browser, in this case http://192.168.29.36. The web server will open and display the sensor data as shown below:
 
 ![image](https://github.com/user-attachments/assets/a4a947ea-ab98-41d5-9230-b89f77d2cbc8)
 
