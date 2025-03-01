@@ -6,17 +6,29 @@ to download an additional one. You can directly import the module with import dh
 """
 
 from machine import Pin, I2C
-from time import sleep
+import time
+import ntptime
+
 import dht
 from bmp280 import BMP280I2C
+from config import ssid, password
+from wlan import set_wlan
+
+led_onboard = Pin("LED", Pin.OUT)
+led_onboard.value(1)
+set_wlan(led_onboard)
+ntptime.settime()
+dt = time.localtime()
+print("{:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(dt[0], dt[1], dt[2], dt[4], dt[5], dt[6]))
 
 sensor = dht.DHT22(Pin(13))
 bus = I2C(0,sda=Pin(0), scl=Pin(1), freq=400000)
 bmp280 = BMP280I2C(0x77, bus)
+led_onboard.value(0)
 
 while True:
   try:
-    sleep(1)     # le DHT22 renvoie au maximum une mesure toute les 1s
+    time.sleep(1)     # le DHT22 renvoie au maximum une mesure toute les 1s
     readout= bmp280.measurements
     sensor.measure()     # Recuperère les mesures du sensor
     print(f"Temperature : {sensor.temperature():.1f}°C")

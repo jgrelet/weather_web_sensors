@@ -1,5 +1,6 @@
 import machine, sys
 import web_app
+
 try:
     web_app.main()
 except Exception as e:

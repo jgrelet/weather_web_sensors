@@ -1,38 +1,32 @@
 import network
 import socket
 import time
+import ntptime
+
 from machine import Pin, I2C
 from bmp280 import BMP280I2C
 import dht  # humidity
 import gc
 from config import ssid, password
+from wlan import set_wlan
 
 gc.collect()
 
-
 led_onboard = Pin("LED", Pin.OUT)
+led_onboard.value(1)
+set_wlan(led_onboard)
+
+# Synchroniser l'heure avec un serveur NTP
+ntptime.settime()
+
+# Sensor Configuration
 i2c = I2C(0, sda = Pin(0), scl = Pin(1), freq = 1000000)
 bmp = BMP280I2C(0x77, i2c)
 time.sleep(1)
 sensor = dht.DHT22(Pin(13))
-
-#Connect to WLAN
-wlan = network.WLAN(network.STA_IF)
-wlan.active(True)
-wlan.connect(ssid, password)
-while wlan.isconnected() == False:
-    led_onboard.value(1)
-    print('Connecting...')
-    time.sleep(1)
-ip = wlan.ifconfig()[0]
-print('Connection successful')
-print(f'Connected on {ip}')
 led_onboard.value(0)
 
 def web_page():
-    #Sensor Configuration
-    #bmp = BMP280(i2c)
-    #bmp.use_case(BMP280_CASE_INDOOR)
     
     try:
         time.sleep(1)     # le DHT22 renvoie au maximum une mesure toute les 1s      
@@ -43,9 +37,7 @@ def web_page():
         
     temp = readout_bmp['t']
     pres = readout_bmp['p']
-    #print(dir(sensor))
     hum = sensor.humidity()
-    #hum = 0
 
     p_bar = pres/100000
     p_mmHg = pres/133.3224
@@ -57,12 +49,8 @@ def web_page():
     pres_bar = "{:.4f}".format(p_bar)
     pres_hg = "{:.1f}".format(p_mmHg)
     hum = "{:.0f}".format(hum)
-    #time.sleep(1)
     year, month, day, hour, minute, second, weekday, yearday = time.localtime()
-    #t = time.localtime()
-    date_time = str(f"{day:02d}/{month:02d}/{year} {hour:02d}:{minute:02d}:{second:02d}")
-    #date_time = time.strftime("%H:%M:%S", t)
-    #date_time = "2026/02/26 09:55:01"
+    date_time = str(f"{month:02d}/{day:02d}/{year} {hour:02d}:{minute:02d}:{second:02d}")
         
     #HTML CODE for Webserver 
     html = """<html>
