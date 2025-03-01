@@ -169,6 +169,9 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
+# workspace
+*.code-workspace
+
 # vscode micropython extension 
 .micropico
 extensions.json
