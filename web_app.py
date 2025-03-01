@@ -10,6 +10,7 @@ import gc
 from config import ssid, password
 from wlan import set_wlan
 
+# this code is executed during import
 gc.collect()
 
 led_onboard = Pin("LED", Pin.OUT)
@@ -29,7 +30,8 @@ led_onboard.value(0)
 def web_page():
     
     try:
-        time.sleep(1)     # le DHT22 renvoie au maximum une mesure toute les 1s      
+        led_onboard.value(1)
+        #time.sleep(1)     # le DHT22 renvoie au maximum une mesure toute les 1s      
         readout_bmp = bmp.measurements
         sensor.measure()
     except OSError as e:
@@ -79,7 +81,7 @@ def web_page():
     <h2><u>Rpi Pico 2W Web Server using BMP280 and DHT22 sensors</u></h2>
   </div>
   <div class="content">
-    <h2>""" + str(date_time) + """</h2>
+    <h2>""" + str(date_time) + " UTC" + """</h2>
   </div>
   <div class="content">
     <div class="cards">
@@ -106,6 +108,7 @@ def web_page():
 </body>
 
 </html>"""
+    led_onboard.value(0)
     return html
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
