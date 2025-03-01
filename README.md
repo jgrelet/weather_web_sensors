@@ -8,7 +8,7 @@ This project is based from IoT Starters blog [Connecting BMP280 sensor with Rasp
 - [DTH22](https://fr.aliexpress.com/item/32759901711.html?spm=a2g0o.order_list.order_list_main.61.1ab05e5bBsdUCw&gatewayAdapt=glo2fra): Temperature and humidity
 - [AHT20 + BMP280](https://fr.aliexpress.com/item/1005008139283157.html?spm=a2g0o.order_list.order_list_main.66.1ab05e5bBsdUCw&gatewayAdapt=glo2fra): Temperature and atmospheric pressure
 - Breadboard and jumper wires
-- [Thonny](https://thonny.org/) IDE or Visual Studio Code (VSC) with MicroPico extension
+- [Thonny](https://thonny.org/) IDE or Visual Studio Code (VSC) with [MicroPico](https://github.com/paulober/MicroPico) extension
 - [Micropython](https://micropython.org/download/RPI_PICO2_W/)
 
 ## Wlan configuration
