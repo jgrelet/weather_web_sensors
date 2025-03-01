@@ -168,3 +168,8 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# vscode micropython extension 
+.micropico
+extensions.json
+settings.json
