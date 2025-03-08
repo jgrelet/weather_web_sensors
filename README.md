@@ -1,4 +1,4 @@
-# Meteorological sensor measurement with RPI Pico 2W and web visualization.
+# Meteorological sensors measurement with RPI Pico 2W and web visualization.
 
 This project is based from IoT Starters blog [Connecting BMP280 sensor with Raspberry Pi Pico W](https://iotstarters.com/connecting-bmp280-sensor-with-raspberry-pi-pico-w/)
 
@@ -66,7 +66,7 @@ MPY: soft reboot
 Connection successful
 Connected on 192.168.1.36
 ```
-Now copy the IP address into your web browser, in this case http://192.168.29.36. The web server will open and display the sensor data as shown below:
+Now copy the IP address into your web browser, in this case http://192.168.29.36. The web server will open and display the sensors data as shown below:
 
 ![image](https://github.com/user-attachments/assets/a0b10bff-c2d9-4772-b944-e89969b73976)
 
