@@ -67,6 +67,7 @@ Connection successful
 Connected on 192.168.1.36
 ```
 Now copy the IP address into your web browser, in this case http://192.168.29.36. The web server will open and display the sensor data as shown below:
+
 ![image](https://github.com/user-attachments/assets/a0b10bff-c2d9-4772-b944-e89969b73976)
 
 
