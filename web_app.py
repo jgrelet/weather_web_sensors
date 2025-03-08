@@ -5,27 +5,30 @@ import ntptime
 
 from machine import Pin, I2C
 from bmp280 import BMP280I2C
+from ssd1306 import SSD1306_I2C
 import dht  # humidity
 import gc
 from config import ssid, password
 from wlan import set_wlan
 
+# Oled ssd1306 dimensions
+WIDTH =128 
+HEIGHT= 32
+
 # this code is executed during import
 gc.collect()
 
+# I2C Configuration (sensor, Oled screen)
+i2c = I2C(0, sda = Pin(0), scl = Pin(1), freq = 200000)
+
+# Initialize SSD1306 display with I2C interface
+oled = SSD1306_I2C(WIDTH,HEIGHT,i2c)
+
 led_onboard = Pin("LED", Pin.OUT)
-led_onboard.value(1)
-set_wlan(led_onboard)
-
-# Synchroniser l'heure avec un serveur NTP
-ntptime.settime()
-
-# Sensor Configuration
-i2c = I2C(0, sda = Pin(0), scl = Pin(1), freq = 1000000)
 bmp = BMP280I2C(0x77, i2c)
+
 time.sleep(1)
 sensor = dht.DHT22(Pin(13))
-led_onboard.value(0)
 
 def web_page():
     
@@ -111,27 +114,49 @@ def web_page():
     led_onboard.value(0)
     return html
 
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.bind(('', 80))
-s.listen(5)
+def main():
+   
 
-while True:
-  try:
-    if gc.mem_free() < 102000:
-      gc.collect()
-    conn, addr = s.accept()
-    conn.settimeout(3.0)
-    print('Got a connection from %s' % str(addr))
-    request = conn.recv(1024)
-    conn.settimeout(None)
-    request = str(request)
-    print('Content = %s' % request)
-    response = web_page()
-    conn.send('HTTP/1.1 200 OK\n')
-    conn.send('Content-Type: text/html\n')
-    conn.send('Connection: close\n\n')
-    conn.sendall(response)
-    conn.close()
-  except OSError as e:
-    conn.close()
-    print('Connection closed')
+  # Clear the display
+  oled.fill(0)
+  print("Initializing...,")
+  oled.text("Initializing...,", 0, 0) 
+
+  
+  led_onboard.value(1)
+  set_wlan(led_onboard)
+  oled.text("Wifi Ok...,", 0, 12) 
+
+  # Synchroniser l'heure avec un serveur NTP
+  ntptime.settime()
+  oled.text("NTP Ok...", 0, 24) 
+
+  
+  led_onboard.value(0)
+  # Clear the display
+  #oled.fill(0)
+
+  s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+  s.bind(('', 80))
+  s.listen(5)
+
+  while True:
+    try:
+      if gc.mem_free() < 102000:
+        gc.collect()
+      conn, addr = s.accept()
+      conn.settimeout(3.0)
+      print('Got a connection from %s' % str(addr))
+      request = conn.recv(1024)
+      conn.settimeout(None)
+      request = str(request)
+      print('Content = %s' % request)
+      response = web_page()
+      conn.send('HTTP/1.1 200 OK\n')
+      conn.send('Content-Type: text/html\n')
+      conn.send('Connection: close\n\n')
+      conn.sendall(response)
+      conn.close()
+    except OSError as e:
+      conn.close()
+      print('Connection closed')
