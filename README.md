@@ -35,8 +35,11 @@ Define your Wifi ssid and password in [config.py](https://github.com/jgrelet/wea
 - GND -> Pin3
 - DAT -> Pin17 (GP13)
 
-![image](https://github.com/user-attachments/assets/2f6fc58e-93a1-45fe-bdc0-90829411e9d9)
+### Reset
 
+Connect a push-button between pin 30 (RUN) and pin 28 (GND) 
+
+![image](https://github.com/user-attachments/assets/65f24e1a-bfd9-46e5-8a0a-ab0e02d3a7b2)
 
 ## Run scanner.py to scan I2C bus (AHT20 + BMP280 sensors and OLED display)
 
