@@ -9,7 +9,7 @@ sda_pin=Pin(0)
 scl_pin=Pin(1)
 # Display dimensions
 WIDTH =128 
-HEIGHT= 32
+HEIGHT= 64
 # Set up I2C communication
 i2c=I2C(0,scl=scl_pin,sda=sda_pin,freq=200000)
 time.sleep(0.1)

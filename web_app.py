@@ -12,8 +12,13 @@ from config import ssid, password
 from wlan import set_wlan
 
 # Oled ssd1306 dimensions
-WIDTH =128 
-HEIGHT= 32
+WIDTH = 128 
+HEIGHT = 64
+
+# sensor offset
+TEMP_OFFSET = -2.1
+PATM_OFFSET = -2
+HUM_OFFSET = 0
 
 # this code is executed during import
 gc.collect()
@@ -47,7 +52,12 @@ def web_page():
     p_bar = pres/100000
     p_mmHg = pres/133.3224
     
-    temp_c2f= (temp * (9/5) + 32)
+    # set offset for sensor
+    temp = temp + TEMP_OFFSET
+    pres = pres + PATM_OFFSET
+    hum = hum + HUM_OFFSET
+
+    temp_c2f= (temp * (9/5) + 32) 
     temp = "{:.1f}".format(temp)
     temp_f= "{:.1f}".format(temp_c2f)
     pres_p = "{:.1f}".format(pres)
@@ -55,8 +65,17 @@ def web_page():
     pres_hg = "{:.1f}".format(p_mmHg)
     hum = "{:.0f}".format(hum)
     year, month, day, hour, minute, second, weekday, yearday = time.localtime()
-    date_time = str(f"{month:02d}/{day:02d}/{year} {hour:02d}:{minute:02d}:{second:02d}")
-        
+    date_time = f"{hour:02d}:{minute:02d}:{second:02d} {month}/{day}/{year-2000:02d} "
+    
+    oled.fill(0)
+    oled.text("Weather data", 20, 0)
+    oled.hline(0,10,128,1)
+    oled.text(f"{date_time}", 0, 16)
+    oled.text(f"Temp: {temp} C", 0, 28)
+    oled.text(f"Pres: {pres_p} mb", 0, 40)
+    oled.text(f"Humi: {hum} %", 0, 52)
+    oled.show()
+
     #HTML CODE for Webserver 
     html = """<html>
     <head>
@@ -84,7 +103,7 @@ def web_page():
     <h2><u>Rpi Pico 2W Web Server using BMP280 and DHT22 sensors</u></h2>
   </div>
   <div class="content">
-    <h2>""" + str(date_time) + " UTC" + """</h2>
+    <h2>""" + date_time + " UTC" + """</h2>
   </div>
   <div class="content">
     <div class="cards">
@@ -97,12 +116,14 @@ def web_page():
       <div class="card pressure">
         <h4><i class="fas fa-angle-double-down"></i> PRESSURE</h4><p><span class="reading">""" + str(pres_p) + """ Pa</p>
       </div>
+      <!-- comment pressure diplay in bar and mmHg
       <div class="card pressure">
         <h4><i class="fas fa-angle-double-down"></i> PRESSURE</h4><p><span class="reading">""" + str(pres_bar) + """ bar</p>
       </div>
       <div class="card pressure">
         <h4><i class="fas fa-angle-double-down"></i> PRESSURE</h4><p><span class="reading">""" + str(pres_hg) + """ mmHg</p>
       </div>
+      -->
       <div class="card humidity">
         <h4><i class="fas fa-angle-double-down"></i> HUMIDITY</h4><p><span class="reading">""" + str(hum) + """ %</p>
       </div>
@@ -121,20 +142,20 @@ def main():
   oled.fill(0)
   print("Initializing...,")
   oled.text("Initializing...,", 0, 0) 
+  oled.show()
 
   
   led_onboard.value(1)
   set_wlan(led_onboard)
   oled.text("Wifi Ok...,", 0, 12) 
+  oled.show()
 
   # Synchroniser l'heure avec un serveur NTP
   ntptime.settime()
   oled.text("NTP Ok...", 0, 24) 
+  oled.show()
 
-  
   led_onboard.value(0)
-  # Clear the display
-  #oled.fill(0)
 
   s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
   s.bind(('', 80))
