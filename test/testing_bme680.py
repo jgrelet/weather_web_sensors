@@ -4,11 +4,18 @@
 from machine import Pin, I2C
 from time import sleep
 from bme680 import *
+from config_sensors import SENSORS
 
-# RPi Pico - Pin assignment
-i2c = I2C(id=0, scl=Pin(5), sda=Pin(4))
+i2c_cfg = SENSORS["i2c"]
+bme_cfg = SENSORS.get("bme680", {})
+i2c = I2C(
+    id=i2c_cfg["id"],
+    scl=Pin(i2c_cfg["scl_pin"]),
+    sda=Pin(i2c_cfg["sda_pin"]),
+    freq=i2c_cfg["freq"],
+)
 
-bme = BME680_I2C(i2c=i2c)
+bme = BME680_I2C(i2c=i2c, address=bme_cfg.get("address", 0x77))
 
 while True:
   try:

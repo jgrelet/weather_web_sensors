@@ -11,7 +11,8 @@ Decimal address:  119  | Hexa address:  0x77
 """
 
 from machine import *
-i2c = I2C(id=0, scl=Pin(1), sda=Pin(0))
+i2c = I2C(id=1, scl=Pin(3), sda=Pin(2))
+#i2c = I2C(id=0, scl=Pin(5), sda=Pin(4))
 
 print('Scan i2c bus...')
 devices = i2c.scan()

@@ -22,7 +22,7 @@ dt = time.localtime()
 print("{:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(dt[0], dt[1], dt[2], dt[4], dt[5], dt[6]))
 
 sensor = dht.DHT22(Pin(13))
-bus = I2C(0,sda=Pin(0), scl=Pin(1), freq=400000)
+bus = I2C(1,sda=Pin(2), scl=Pin(3), freq=400000)
 bmp280 = BMP280I2C(0x77, bus)
 led_onboard.value(0)
 

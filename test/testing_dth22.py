@@ -6,8 +6,10 @@ https://www.upesy.fr/blogs/tutorials/pi-pico-dht22-with-micropython-humidity-tem
 from machine import Pin
 from time import sleep
 import dht
+from config_sensors import SENSORS
 
-capteur = dht.DHT22(Pin(13))
+dht_cfg = SENSORS.get("dht22", {})
+capteur = dht.DHT22(Pin(dht_cfg.get("pin", 13)))
 
 while True:
   try:

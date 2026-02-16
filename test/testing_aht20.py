@@ -2,9 +2,15 @@ import utime
 from machine import Pin, I2C
 
 import ahtx0
+from config_sensors import SENSORS
 
-# I2C for the Wemos D1 Mini with ESP8266
-i2c = I2C(id=0, scl=Pin(1), sda=Pin(0))
+i2c_cfg = SENSORS.get("i2c_aux", SENSORS["i2c"])
+i2c = I2C(
+    id=i2c_cfg["id"],
+    scl=Pin(i2c_cfg["scl_pin"]),
+    sda=Pin(i2c_cfg["sda_pin"]),
+    freq=i2c_cfg["freq"],
+)
 
 # Create the sensor object using I2C
 sensor = ahtx0.AHT20(i2c)
