@@ -1,0 +1,29 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Pico: Run main.py (mpremote)",
+            "type": "shell",
+            "command": "mpremote",
+            "args": [
+                "connect",
+                "auto",
+                "run",
+                "main.py"
+            ],
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Pico: Soft reset",
+            "type": "shell",
+            "command": "mpremote",
+            "args": [
+                "connect",
+                "auto",
+                "soft-reset"
+            ],
+            "problemMatcher": []
+        }
+    ]
+}

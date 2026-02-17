@@ -240,6 +240,12 @@ def _send_html(conn, html):
     conn.sendall(html)
 
 
+def _send_redirect(conn, location="/"):
+    conn.send("HTTP/1.1 303 See Other\n")
+    conn.send("Location: {}\n".format(location))
+    conn.send("Connection: close\n\n")
+
+
 def _parse_http_path(request_bytes):
     try:
         request_line = request_bytes.decode().split("\r\n", 1)[0]
@@ -315,10 +321,15 @@ def main():
 
     ntp_required = _should_sync_ntp(APP, rtc_valid)
     print("NTP mode:", _resolve_ntp_mode(APP), "sync_required:", ntp_required)
+    last_ntp_message = None
     if ntp_required:
         try:
             ntptime.settime()
             _save_rtc_to_ds3231(SENSORS["i2c"], rtc_cfg)
+            ts = time.localtime()
+            last_ntp_message = "NTP sync OK {:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(
+                ts[0], ts[1], ts[2], ts[3], ts[4], ts[5]
+            )
             if display:
                 display.show_boot(["Wifi OK", "NTP OK"])
         except Exception as exc:
@@ -344,10 +355,13 @@ def main():
             conn.settimeout(None)
             path = _parse_http_path(request)
 
-            ntp_message = None
+            ntp_message = last_ntp_message
             if path.startswith("/sync-ntp"):
-                ntp_message = _manual_ntp_sync(SENSORS["i2c"], rtc_cfg)
-                print(ntp_message)
+                last_ntp_message = _manual_ntp_sync(SENSORS["i2c"], rtc_cfg)
+                print(last_ntp_message)
+                _send_redirect(conn, "/")
+                conn.close()
+                continue
 
             reading = sensors.read_all()
             exporters.publish_all(reading)
@@ -357,6 +371,7 @@ def main():
                 reading,
                 refresh_seconds=APP["web_refresh_seconds"],
                 ntp_message=ntp_message,
+                current_dt=time.localtime(),
             )
 
             _send_html(conn, html)

@@ -71,11 +71,20 @@ def _render_compare_rows(data):
     return "".join(rows), ref_name
 
 
-def render_html(data, refresh_seconds=8, ntp_message=None):
+def _fmt_datetime(ts):
+    if not ts or len(ts) < 6:
+        return "-"
+    return "{:04d}/{:02d}/{:02d} {:02d}:{:02d}:{:02d}".format(
+        ts[0], ts[1], ts[2], ts[3], ts[4], ts[5]
+    )
+
+
+def render_html(data, refresh_seconds=8, ntp_message=None, current_dt=None):
     comparison_rows, reference_name = _render_compare_rows(data)
     ntp_banner = ""
     if ntp_message:
         ntp_banner = '<div class="ntp-banner">{}</div>'.format(ntp_message)
+    current_time = _fmt_datetime(current_dt)
     return """<html>
     <head>
       <title>Pico2 Weather Debug</title>
@@ -98,7 +107,7 @@ def render_html(data, refresh_seconds=8, ntp_message=None):
       </style>
     </head>
     <body>
-      <div class="topnav"><h2>Rpi Pico 2W Weather Debug Server</h2></div>
+      <div class="topnav"><h2>Rpi Pico 2W Weather Debug Server</h2><p>Date et heure: {current_time}</p></div>
       <div class="actions"><a class="btn" href="/sync-ntp">Synchroniser NTP maintenant</a></div>
       {ntp_banner}
       <div class="cards">
@@ -137,4 +146,5 @@ def render_html(data, refresh_seconds=8, ntp_message=None):
         comparison_rows=comparison_rows,
         reference_name=reference_name,
         ntp_banner=ntp_banner,
+        current_time=current_time,
     )
