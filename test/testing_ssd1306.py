@@ -3,7 +3,7 @@ import time
 from machine import Pin, I2C
 from ssd1306 import SSD1306_I2C
 
-from config_sensors import SENSORS
+from config import SENSORS
 
 WIDTH = 128
 HEIGHT = 64
@@ -51,3 +51,4 @@ if i2c0_cfg:
         print(f"I2C{i2c0_cfg['id']} devices found:", len(i2c0_devices))
     for device in i2c0_devices:
         print("address: ", device, " | Hexa address: ", hex(device))
+

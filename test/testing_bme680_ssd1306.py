@@ -6,7 +6,7 @@ from bme680 import BME680_I2C
 from ssd1306 import SSD1306_I2C
 
 from wlan import set_wlan
-from config_sensors import SENSORS
+from config import SENSORS
 
 WIDTH = 128
 HEIGHT = 64
@@ -68,3 +68,4 @@ while True:
         print("Failed to read sensor.")
 
     sleep(1)
+

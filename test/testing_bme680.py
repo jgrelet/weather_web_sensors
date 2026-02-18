@@ -4,7 +4,7 @@
 from machine import Pin, I2C
 from time import sleep
 from bme680 import *
-from config_sensors import SENSORS
+from config import SENSORS
 
 i2c_cfg = SENSORS["i2c"]
 bme_cfg = SENSORS.get("bme680", {})
@@ -38,3 +38,4 @@ while True:
     print('Failed to read sensor.')
  
   sleep(5)
+

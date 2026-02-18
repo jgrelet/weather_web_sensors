@@ -7,7 +7,7 @@
 
 ## 2) Gestion capteurs et bus
 
-- Separation explicite de deux bus I2C dans `config_sensors.py`:
+- Separation explicite de deux bus I2C dans `config.py`:
   - `i2c` (I2C1): SSD1306, DS3231, BME680
   - `i2c_aux` (I2C0): AHT20, BME280
 - Ajout capteurs applicatifs:
@@ -32,10 +32,11 @@
 
 ## 5) Configuration et securite
 
-- `config.py` lit `wifi_secrets.py` si present.
+- `config_wifi.py` lit `wifi_secrets.py` si present.
 - `wifi_secrets.py` ajoute a `.gitignore`.
 - `wifi_secrets.example.py` fourni comme modele.
 
 ## 6) Clarification config RTC
 
 - Renommage `trc` -> `eeprom` pour l'adresse `0x57` (AT24C32).
+

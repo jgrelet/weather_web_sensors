@@ -1,4 +1,4 @@
-﻿import machine
+import machine
 import sys
 import time
 import web_app
@@ -12,7 +12,7 @@ except KeyboardInterrupt:
     print("Stopped by user (KeyboardInterrupt).")
 except Exception as e:
     print("Fatal error in main:")
-    sys.print_exception(e)
+    sys.print_exception(e) # pylint: disable=no-member
     if AUTO_RESET_ON_FATAL:
         time.sleep(2)
         machine.reset()

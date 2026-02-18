@@ -2,7 +2,7 @@ import utime
 from machine import Pin, I2C
 
 import ahtx0
-from config_sensors import SENSORS
+from config import SENSORS
 
 i2c_cfg = SENSORS.get("i2c_aux", SENSORS["i2c"])
 i2c = I2C(
@@ -19,3 +19,4 @@ while True:
     print("\nTemperature: %0.2f C" % sensor.temperature)
     print("Humidity: %0.2f %%" % sensor.relative_humidity)
     utime.sleep(5)
+

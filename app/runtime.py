@@ -6,7 +6,7 @@ import ntptime
 from machine import I2C, Pin, RTC
 
 from wlan import set_wlan
-from config_sensors import APP, EXPORTS, SENSORS
+from config import APP, EXPORTS, SENSORS
 from sensors import (
     AHT20Sensor,
     BME680Sensor,
@@ -234,16 +234,27 @@ def _build_sensor_manager():
 
 
 def _send_html(conn, html):
-    conn.send("HTTP/1.1 200 OK\n")
-    conn.send("Content-Type: text/html\n")
-    conn.send("Connection: close\n\n")
+    conn.send("HTTP/1.1 200 OK\r\n")
+    conn.send("Content-Type: text/html; charset=utf-8\r\n")
+    conn.send("Cache-Control: no-store\r\n")
+    conn.send("Connection: close\r\n")
+    conn.send("\r\n")
     conn.sendall(html)
 
 
 def _send_redirect(conn, location="/"):
-    conn.send("HTTP/1.1 303 See Other\n")
-    conn.send("Location: {}\n".format(location))
-    conn.send("Connection: close\n\n")
+    conn.send("HTTP/1.1 303 See Other\r\n")
+    conn.send("Location: {}\r\n".format(location))
+    conn.send("Cache-Control: no-store\r\n")
+    conn.send("Content-Length: 0\r\n")
+    conn.send("Connection: close\r\n")
+    conn.send("\r\n")
+
+
+def _path_only(path):
+    if not path:
+        return "/"
+    return path.split("?", 1)[0]
 
 
 def _parse_http_path(request_bytes):
@@ -354,9 +365,10 @@ def main():
             request = conn.recv(1024)
             conn.settimeout(None)
             path = _parse_http_path(request)
+            route = _path_only(path)
 
             ntp_message = last_ntp_message
-            if path.startswith("/sync-ntp"):
+            if route == "/sync-ntp":
                 last_ntp_message = _manual_ntp_sync(SENSORS["i2c"], rtc_cfg)
                 print(last_ntp_message)
                 _send_redirect(conn, "/")
@@ -381,3 +393,4 @@ def main():
             if conn:
                 conn.close()
             time.sleep_ms(100)
+

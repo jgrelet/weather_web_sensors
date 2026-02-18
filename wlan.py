@@ -3,7 +3,7 @@ import socket
 import time
 from machine import Pin
 
-from config import ssid, password
+from config_wifi import ssid, password
 
 
 def set_wlan(led_onboard):
@@ -19,3 +19,4 @@ def set_wlan(led_onboard):
     ip = wlan.ifconfig()[0]
     print('Connection successful')
     print(f'Connected on {ip}')
+

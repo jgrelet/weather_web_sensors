@@ -5,7 +5,7 @@ from machine import I2C, Pin
 from time import sleep
 
 from bmp280 import BMP280I2C
-from config_sensors import SENSORS
+from config import SENSORS
 
 i2c_cfg = SENSORS.get("i2c_aux", SENSORS["i2c"])
 bme280_cfg = SENSORS.get("bme280", {})
@@ -23,3 +23,4 @@ while True:
     print(readout)
     print(f"Temperature: {readout['t']} C, pressure: {readout['p']} hPa.")
     sleep(1)
+

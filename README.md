@@ -35,11 +35,11 @@ Station meteo MicroPython avec visualisation web locale et comparaison multi-cap
 
 ## Configuration
 
-Les parametres capteurs/bus sont dans `config_sensors.py` (dict `SENSORS`).
+Les parametres capteurs/bus sont dans `config.py` (dict `SENSORS`).
 
 ### Wi-Fi sans exposer les credentials
 
-`config.py` charge `wifi_secrets.py` si present.
+`config_wifi.py` charge `wifi_secrets.py` si present.
 
 1. Copier `wifi_secrets.example.py` en `wifi_secrets.py`
 2. Renseigner:
@@ -53,7 +53,7 @@ password = "YOUR_WIFI_PASSWORD"
 
 ## NTP et RTC DS3231
 
-Politique de synchro dans `config_sensors.py` -> `APP`:
+Politique de synchro dans `config.py` -> `APP`:
 
 - `ntp_sync_mode = "never" | "always" | "auto" | "pin"`
 - `ntp_min_year` pour le mode `auto`
@@ -77,3 +77,4 @@ Comportement:
 2. Deployer le projet
 3. Executer `main.py`
 4. Ouvrir l'IP affichee dans le navigateur (ex: `http://192.168.1.54`)
+
