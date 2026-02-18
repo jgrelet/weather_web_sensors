@@ -18,7 +18,13 @@ from sensors import (
     WindSpeedSensor,
 )
 from app.display import Display
-from app.exporters import ExportManager, LoRaWanExporter, MqttExporter
+from app.exporters import (
+    ExportManager,
+    LoRaWanExporter,
+    MqttExporter,
+    SerialExporter,
+    UdpExporter,
+)
 from app.web import render_html
 
 
@@ -280,6 +286,46 @@ def _manual_ntp_sync(i2c_cfg, rtc_cfg):
         return "NTP sync failed: {}".format(exc)
 
 
+def _print_export_modes(mqtt_cfg, serial_cfg, udp_cfg, lorawan_cfg):
+    print("Transmission modes:")
+    if mqtt_cfg.get("enabled", False):
+        print(
+            " - MQTT: ON -> {}:{} topic={}".format(
+                mqtt_cfg.get("broker"),
+                mqtt_cfg.get("port", 1883),
+                mqtt_cfg.get("topic", "weather/sensors"),
+            )
+        )
+    else:
+        print(" - MQTT: OFF")
+
+    if udp_cfg.get("enabled", False):
+        print(
+            " - UDP: ON -> {}:{}".format(
+                udp_cfg.get("host"),
+                udp_cfg.get("port", 9999),
+            )
+        )
+    else:
+        print(" - UDP: OFF")
+
+    if serial_cfg.get("enabled", False):
+        print(
+            " - SERIAL: ON (prefix={})".format(
+                serial_cfg.get("prefix", "JSON"),
+            )
+        )
+    else:
+        print(" - SERIAL: OFF")
+
+    if lorawan_cfg.get("enabled", False):
+        print(" - LORAWAN: ON (port={})".format(lorawan_cfg.get("port", 1)))
+    else:
+        print(" - LORAWAN: OFF")
+
+    print("Export trigger: each sensor reading (in this app, on HTTP request).")
+
+
 def main():
     gc.collect()
     led = Pin("LED", Pin.OUT)
@@ -292,7 +338,10 @@ def main():
         except OSError as e:
             print("OLED init skipped:", e)
     mqtt_cfg = EXPORTS["mqtt"]
+    serial_cfg = EXPORTS.get("serial", {})
+    udp_cfg = EXPORTS.get("udp", {})
     lorawan_cfg = EXPORTS["lorawan"]
+    _print_export_modes(mqtt_cfg, serial_cfg, udp_cfg, lorawan_cfg)
     exporters = ExportManager(
         [
             MqttExporter(
@@ -307,6 +356,15 @@ def main():
                 ssl=mqtt_cfg["ssl"],
                 qos=mqtt_cfg["qos"],
                 retain=mqtt_cfg["retain"],
+            ),
+            SerialExporter(
+                enabled=serial_cfg.get("enabled", False),
+                prefix=serial_cfg.get("prefix", "JSON"),
+            ),
+            UdpExporter(
+                enabled=udp_cfg.get("enabled", False),
+                host=udp_cfg.get("host"),
+                port=udp_cfg.get("port", 9999),
             ),
             LoRaWanExporter(
                 enabled=lorawan_cfg["enabled"],
@@ -376,7 +434,10 @@ def main():
                 continue
 
             reading = sensors.read_all()
-            exporters.publish_all(reading)
+            export_results = exporters.publish_all(reading)
+            for exporter_name, exporter_result in export_results.items():
+                if isinstance(exporter_result, str):
+                    print("Export error [{}]: {}".format(exporter_name, exporter_result))
             if display:
                 display.show_reading(reading)
             html = render_html(

@@ -78,3 +78,107 @@ Comportement:
 3. Executer `main.py`
 4. Ouvrir l'IP affichee dans le navigateur (ex: `http://192.168.1.54`)
 
+## Visualisation des exports (UDP et MQTT)
+
+### UDP (payload JSON direct)
+
+Configuration Pico (`config.py` -> `EXPORTS["udp"]`):
+
+```python
+"udp": {
+    "enabled": True,
+    "host": "192.168.1.48",  # IP du PC qui recoit
+    "port": 9999,
+}
+```
+
+Reception sur le PC:
+
+```bash
+python tools/udp_receiver.py --host 0.0.0.0 --port 9999
+```
+
+Note:
+- L'export est emis a chaque lecture capteurs (dans cette app, lors d'une requete HTTP sur l'UI web).
+
+### MQTT (publication via broker)
+
+Installation rapide de Mosquitto sous Windows (Scoop):
+
+```bash
+scoop install mosquitto
+```
+
+Demarrer le broker en ecoute reseau (pas en mode local-only):
+
+1. Creer `mosquitto.conf` (encodage sans BOM, idealement ASCII) avec:
+
+```conf
+listener 1883 0.0.0.0
+allow_anonymous true
+```
+
+2. Lancer Mosquitto avec ce fichier:
+
+```bash
+mosquitto -c .\mosquitto.conf -v
+```
+
+3. Verifier l'abonnement depuis le PC:
+
+```bash
+mosquitto_sub -h 192.168.1.48 -p 1883 -t weather/sensors -v
+```
+
+Si Mosquitto affiche `Starting in local only mode`, c'est que le broker n'a pas ete lance avec un listener reseau.
+
+Configuration Pico (`config.py` -> `EXPORTS["mqtt"]`):
+
+```python
+"mqtt": {
+    "enabled": True,
+    "broker": "192.168.1.48",  # IP du broker MQTT (ex: Mosquitto)
+    "port": 1883,
+    "topic": "weather/sensors",
+    ...
+}
+```
+
+Visualisation sur le PC (abonnement):
+
+```bash
+mosquitto_sub -h 192.168.1.48 -p 1883 -t weather/sensors -v
+```
+
+Validation rapide (memo):
+
+```bash
+# 1) Voir topic + payload JSON publie
+mosquitto_sub -h 192.168.1.48 -p 1883 -t weather/sensors -v
+
+# 2) Voir les echanges MQTT cote client (CONNECT/SUBSCRIBE/PUBLISH)
+mosquitto_sub -d -h 192.168.1.48 -p 1883 -t weather/sensors -v
+
+# 3) Valider que le payload est un JSON decode correctement
+mosquitto_sub -h 192.168.1.48 -p 1883 -t weather/sensors | python -m json.tool
+```
+
+Analyse reseau (optionnel, Wireshark):
+- Filtre d'affichage: `tcp.port == 1883` (ou `mqtt`)
+- Permet de voir les trames `CONNECT`, `CONNACK`, `PUBLISH`, etc.
+
+Pourquoi des ports differents:
+- MQTT utilise en general TCP/1883 (ou 8883 en TLS) via un broker.
+- UDP est un transport distinct, ici en UDP/9999 vers un receiver local.
+
+Depannage rapide:
+- Erreur `connexion refusee` sur `192.168.1.48:1883`: broker non demarre, listener reseau absent, ou pare-feu Windows bloque TCP 1883.
+- Erreur `Unknown configuration variable '...listener'`: fichier `mosquitto.conf` en UTF-8 avec BOM. Reenregistrer sans BOM (ASCII ou UTF-8 sans BOM).
+
+## Port serie et vitesse (baudrate)
+
+Le `SerialExporter` de ce projet ecrit avec `print()` sur la sortie serie USB (CDC/REPL).
+Il n'y a donc pas de `baudrate` dans `config.py` pour cet export: la vitesse n'est pas geree ici comme un UART TTL classique.
+
+Le script `tools/serial_receiver.py` (option `--baudrate`) concerne une lecture serie cote PC quand on passe par un port serie configure par le systeme/hardware.
+
