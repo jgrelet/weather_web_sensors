@@ -165,8 +165,16 @@ mosquitto_sub -h 192.168.1.48 -p 1883 -t weather/sensors -v
 # 2) Show MQTT client debug exchanges (CONNECT/SUBSCRIBE/PUBLISH)
 mosquitto_sub -d -h 192.168.1.48 -p 1883 -t weather/sensors -v
 
-# 3) Validate JSON payload decoding
-mosquitto_sub -h 192.168.1.48 -p 1883 -t weather/sensors | python -m json.tool
+# 3) Validate one JSON payload decoding
+mosquitto_sub -h 192.168.1.48 -p 1883 -t weather/sensors -C 1| python -m json.tool
+
+# 4) Validate all JSON payload decoding (use with Powershell)
+mosquitto_sub -h 192.168.1.48 -p 1883 -t weather/sensors |
+  ForEach-Object {
+    if ($_ -and $_.Trim()) {
+      $_ | python -m json.tool
+    }
+  }
 ```
 
 Network analysis (optional, Wireshark):
@@ -197,9 +205,32 @@ There is no `baudrate` setting in `config.py` for this exporter, unlike a classi
 ### Mosquitto
 
 ```bash
-mosquitto_sub -h 192.168.1.48 -p 1883 -t weather/sensors -v
+mosquitto_sub -h 192.168.1.48 -p 1883 -t weather/sensors -C 1| python -m json.tool
 ```
 
-```python
-weather/sensors {"sensor_bme280_temperature_c": 21.23, "wind_dir_cardinal": "W", "sensor_bme680_gas_kohms": 553.17, "sensor_dht22_temperature_c": 20.6, "sensor_bme680_temperature_c": 20.11, "sensor_dht22_humidity_pct": 59.3, "sensor_bme680_humidity_pct": 59.54, "sensor_aht20_humidity_pct": 64.15, "pressure_hpa": 978.34, "temperature_c": 20.11, "gas_kohms": 553.17, "wind_dir_raw": 7905, "sensor_bme680_pressure_hpa": 978.34, "humidity_pct": 59.54, "rain_mm": 0.0, "timestamp": 1771428856, "rain_tips": 0, "wind_dir_deg": 270.0, "wind_speed_kmh": 0.0, "wind_pulses": 0, "sensor_bme280_pressure_hpa": 978.78, "rain_mm_total": 0.0, "sensor_aht20_temperature_c": 20.77}
-```
+```json
+{
+  "sensor_bme280_temperature_c": 21.23,
+  "wind_dir_cardinal": "W",
+  "sensor_bme680_gas_kohms": 553.17,
+  "sensor_dht22_temperature_c": 20.6,
+  "sensor_bme680_temperature_c": 20.11,
+  "sensor_dht22_humidity_pct": 59.3,
+  "sensor_bme680_humidity_pct": 59.54,
+  "sensor_aht20_humidity_pct": 64.15,
+  "pressure_hpa": 978.34,
+  "temperature_c": 20.11,
+  "gas_kohms": 553.17,
+  "wind_dir_raw": 7905,
+  "sensor_bme680_pressure_hpa": 978.34,
+  "humidity_pct": 59.54,
+  "rain_mm": 0.0,
+  "timestamp": 1771428856,
+  "rain_tips": 0,
+  "wind_dir_deg": 270.0,
+  "wind_speed_kmh": 0.0,
+  "wind_pulses": 0,
+  "sensor_bme280_pressure_hpa": 978.78,
+  "rain_mm_total": 0.0,
+  "sensor_aht20_temperature_c": 20.77
+}
