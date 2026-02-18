@@ -187,3 +187,9 @@ Quick troubleshooting:
 There is no `baudrate` setting in `config.py` for this exporter, unlike a classic TTL UART setup.
 
 `tools/serial_receiver.py` (`--baudrate`) applies to PC-side serial reading when using a system/hardware serial port.
+
+## Data visualisation
+
+<img width="1028" height="783" alt="image" src="https://github.com/user-attachments/assets/b2c7bc54-ce5f-44ac-90db-f4be6364fedb" />
+
+
