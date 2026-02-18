@@ -1,190 +1,189 @@
 # Weather Web Sensors - Raspberry Pi Pico 2W
 
-Station meteo MicroPython avec visualisation web locale et comparaison multi-capteurs.
-This project is based from IoT Starters blog [Connecting BMP280 sensor with Raspberry Pi Pico W](https://iotstarters.com/connecting-bmp280-sensor-with-raspberry-pi-pico-w/)
+MicroPython weather station with a local web dashboard and multi-sensor comparison.
+This project is based on the IoT Starters blog post [Connecting BMP280 sensor with Raspberry Pi Pico W](https://iotstarters.com/connecting-bmp280-sensor-with-raspberry-pi-pico-w/).
 
-## Materiel
+## Hardware
 
-- [Raspberry Pico 2W](https://www.raspberrypi.com/products/raspberry-pi-pico-2/)
+- [Raspberry Pi Pico 2W](https://www.raspberrypi.com/products/raspberry-pi-pico-2/)
 - BME680 (temperature, humidity, pressure, gas)
-- [DTH22](https://fr.aliexpress.com/item/32759901711.html?spm=a2g0o.order_list.order_list_main.61.1ab05e5bBsdUCw&gatewayAdapt=glo2fra): Temperature and humidity
-- [AHT20 + BMP280](https://fr.aliexpress.com/item/1005008139283157.html?spm=a2g0o.order_list.order_list_main.66.1ab05e5bBsdUCw&gatewayAdapt=glo2fra): Temperature and atmospheric pressure
-- [OLED display SSD1306](https://fr.aliexpress.com/item/1005007706726114.html?spm=a2g0o.order_list.order_list_main.17.11c35e5bhBt9Yk&gatewayAdapt=glo2fra)
-- Wind sensor + raingage
+- [DHT22](https://fr.aliexpress.com/item/32759901711.html?spm=a2g0o.order_list.order_list_main.61.1ab05e5bBsdUCw&gatewayAdapt=glo2fra): temperature and humidity
+- [AHT20 + BMP280](https://fr.aliexpress.com/item/1005008139283157.html?spm=a2g0o.order_list.order_list_main.66.1ab05e5bBsdUCw&gatewayAdapt=glo2fra): temperature and atmospheric pressure
+- [OLED SSD1306 display](https://fr.aliexpress.com/item/1005007706726114.html?spm=a2g0o.order_list.order_list_main.17.11c35e5bhBt9Yk&gatewayAdapt=glo2fra)
+- Wind sensor and rain gauge
 - Breadboard and [jumper wires](https://fr.aliexpress.com/item/1005007430055417.html?spm=a2g0o.order_list.order_list_main.16.11c35e5bhBt9Yk&gatewayAdapt=glo2fra)
-- [Thonny](https://thonny.org/) IDE or Visual Studio Code (VSC) with [MicroPico](https://github.com/paulober/MicroPico) extension
-- [Micropython](https://micropython.org/download/RPI_PICO2_W/)
+- [Thonny](https://thonny.org/) IDE or Visual Studio Code with [MicroPico](https://github.com/paulober/MicroPico)
+- [MicroPython for Pico 2W](https://micropython.org/download/RPI_PICO2_W/)
 
-## Cartographie I2C et GPIO
+## I2C and GPIO Mapping
 
 ### Diagram
 
 ![image](https://github.com/user-attachments/assets/89be49a1-b381-4cd1-b109-21f744a02b64)
 
-### Bus I2C1 (principal)
+### I2C1 Bus (primary)
 
 - SDA: `GP2`, SCL: `GP3`, `id=1`
 - `0x3C`: SSD1306
 - `0x68`: DS3231 (RTC)
-- `0x57`: AT24C32 (EEPROM du module RTC)
+- `0x57`: AT24C32 (RTC module EEPROM)
 - `0x77`: BME680
 
-### Bus I2C0 (auxiliaire)
+### I2C0 Bus (auxiliary)
 
 - SDA: `GP4`, SCL: `GP5`, `id=0`
 - `0x38`: AHT20
 - `0x77`: BME280/BMP280
 
-### GPIO direct
+### Direct GPIO
 
 - `GP13`: DHT22
 
 ## Configuration
 
-Les parametres capteurs/bus sont dans `config.py` (dict `SENSORS`).
+Sensor and bus settings are in `config.py` (`SENSORS` dictionary).
 
-### Wi-Fi sans exposer les credentials
+### Wi-Fi credentials without exposing secrets
 
-`config_wifi.py` charge `wifi_secrets.py` si present.
+`config_wifi.py` loads `wifi_secrets.py` when present.
 
-1. Copier `wifi_secrets.example.py` en `wifi_secrets.py`
-2. Renseigner:
+1. Copy `wifi_secrets.example.py` to `wifi_secrets.py`
+2. Fill in:
 
 ```python
 ssid = "YOUR_WIFI_SSID"
 password = "YOUR_WIFI_PASSWORD"
 ```
 
-`wifi_secrets.py` est ignore par Git.
+`wifi_secrets.py` is gitignored.
 
-## NTP et RTC DS3231
+## NTP and DS3231 RTC
 
-Politique de synchro dans `config.py` -> `APP`:
+Sync policy is configured in `config.py` -> `APP`:
 
 - `ntp_sync_mode = "never" | "always" | "auto" | "pin"`
-- `ntp_min_year` pour le mode `auto`
-- `ntp_trigger_pin`, `ntp_trigger_active_high`, `ntp_trigger_pull` pour le mode `pin`
+- `ntp_min_year` for `auto` mode
+- `ntp_trigger_pin`, `ntp_trigger_active_high`, `ntp_trigger_pull` for `pin` mode
 
-Comportement:
+Behavior:
 
-- Au boot, l'heure est lue depuis le DS3231.
-- Si une synchro NTP est executee, l'heure est aussi reecrite dans le DS3231.
+- At boot, time is loaded from the DS3231.
+- If NTP sync is performed, time is written back to the DS3231.
 
 ## Web UI
 
-- Cartes resume (meteo + vent + pluie)
-- Tableau de comparaison par capteur avec deltas (`Delta T/H/P`)
-- Endpoint manuel NTP: `GET /sync-ntp`
-- Bouton dans l'UI: "Synchroniser NTP maintenant"
+- Summary cards (weather + wind + rain)
+- Sensor comparison table with deltas (`Delta T/H/P`)
+- Manual NTP endpoint: `GET /sync-ntp`
+- UI button: "Sync NTP now"
 
-## Lancement
+## Run
 
-1. Flasher MicroPython sur Pico 2W
-2. Deployer le projet
-3. Executer `main.py`
-4. Ouvrir l'IP affichee dans le navigateur (ex: `http://192.168.1.54`)
+1. Flash MicroPython on Pico 2W
+2. Deploy the project
+3. Run `main.py`
+4. Open the displayed IP in a browser (example: `http://192.168.1.54`)
 
-## Visualisation des exports (UDP et MQTT)
+## Export Visualization (UDP and MQTT)
 
-### UDP (payload JSON direct)
+### UDP (direct JSON payload)
 
-Configuration Pico (`config.py` -> `EXPORTS["udp"]`):
+Pico configuration (`config.py` -> `EXPORTS["udp"]`):
 
 ```python
 "udp": {
     "enabled": True,
-    "host": "192.168.1.48",  # IP du PC qui recoit
+    "host": "192.168.1.48",  # PC IP running the receiver
     "port": 9999,
 }
 ```
 
-Reception sur le PC:
+Receive on PC:
 
 ```bash
 python tools/udp_receiver.py --host 0.0.0.0 --port 9999
 ```
 
 Note:
-- L'export est emis a chaque lecture capteurs (dans cette app, lors d'une requete HTTP sur l'UI web).
+- Export is sent on each sensor read (in this app, when an HTTP request hits the web UI).
 
-### MQTT (publication via broker)
+### MQTT (publish through broker)
 
-Installation rapide de Mosquitto sous Windows (Scoop):
+Quick Mosquitto install on Windows (Scoop):
 
 ```bash
 scoop install mosquitto
 ```
 
-Demarrer le broker en ecoute reseau (pas en mode local-only):
+Start broker with network listener (not local-only):
 
-1. Creer `mosquitto.conf` (encodage sans BOM, idealement ASCII) avec:
+1. Create `mosquitto.conf` (without BOM, preferably ASCII) with:
 
 ```conf
 listener 1883 0.0.0.0
 allow_anonymous true
 ```
 
-2. Lancer Mosquitto avec ce fichier:
+2. Start Mosquitto with this config:
 
 ```bash
 mosquitto -c .\mosquitto.conf -v
 ```
 
-3. Verifier l'abonnement depuis le PC:
+3. Verify subscription from the PC:
 
 ```bash
 mosquitto_sub -h 192.168.1.48 -p 1883 -t weather/sensors -v
 ```
 
-Si Mosquitto affiche `Starting in local only mode`, c'est que le broker n'a pas ete lance avec un listener reseau.
+If Mosquitto shows `Starting in local only mode`, the broker was not started with a network listener.
 
-Configuration Pico (`config.py` -> `EXPORTS["mqtt"]`):
+Pico configuration (`config.py` -> `EXPORTS["mqtt"]`):
 
 ```python
 "mqtt": {
     "enabled": True,
-    "broker": "192.168.1.48",  # IP du broker MQTT (ex: Mosquitto)
+    "broker": "192.168.1.48",  # MQTT broker IP (for example Mosquitto)
     "port": 1883,
     "topic": "weather/sensors",
     ...
 }
 ```
 
-Visualisation sur le PC (abonnement):
+PC visualization (subscriber):
 
 ```bash
 mosquitto_sub -h 192.168.1.48 -p 1883 -t weather/sensors -v
 ```
 
-Validation rapide (memo):
+Quick validation memo:
 
 ```bash
-# 1) Voir topic + payload JSON publie
+# 1) Show topic + JSON payload
 mosquitto_sub -h 192.168.1.48 -p 1883 -t weather/sensors -v
 
-# 2) Voir les echanges MQTT cote client (CONNECT/SUBSCRIBE/PUBLISH)
+# 2) Show MQTT client debug exchanges (CONNECT/SUBSCRIBE/PUBLISH)
 mosquitto_sub -d -h 192.168.1.48 -p 1883 -t weather/sensors -v
 
-# 3) Valider que le payload est un JSON decode correctement
+# 3) Validate JSON payload decoding
 mosquitto_sub -h 192.168.1.48 -p 1883 -t weather/sensors | python -m json.tool
 ```
 
-Analyse reseau (optionnel, Wireshark):
-- Filtre d'affichage: `tcp.port == 1883` (ou `mqtt`)
-- Permet de voir les trames `CONNECT`, `CONNACK`, `PUBLISH`, etc.
+Network analysis (optional, Wireshark):
+- Display filter: `tcp.port == 1883` (or `mqtt`)
+- Shows frames such as `CONNECT`, `CONNACK`, `PUBLISH`, and others
 
-Pourquoi des ports differents:
-- MQTT utilise en general TCP/1883 (ou 8883 en TLS) via un broker.
-- UDP est un transport distinct, ici en UDP/9999 vers un receiver local.
+Why different ports:
+- MQTT usually uses TCP/1883 (or 8883 with TLS) through a broker
+- UDP export is a separate transport, here on UDP/9999 to a local receiver
 
-Depannage rapide:
-- Erreur `connexion refusee` sur `192.168.1.48:1883`: broker non demarre, listener reseau absent, ou pare-feu Windows bloque TCP 1883.
-- Erreur `Unknown configuration variable '...listener'`: fichier `mosquitto.conf` en UTF-8 avec BOM. Reenregistrer sans BOM (ASCII ou UTF-8 sans BOM).
+Quick troubleshooting:
+- `connection refused` on `192.168.1.48:1883`: broker not started, missing network listener, or Windows firewall blocking TCP 1883
+- `Unknown configuration variable '...listener'`: `mosquitto.conf` saved with UTF-8 BOM. Save without BOM (ASCII or UTF-8 without BOM)
 
-## Port serie et vitesse (baudrate)
+## Serial Port and Baud Rate
 
-Le `SerialExporter` de ce projet ecrit avec `print()` sur la sortie serie USB (CDC/REPL).
-Il n'y a donc pas de `baudrate` dans `config.py` pour cet export: la vitesse n'est pas geree ici comme un UART TTL classique.
+`SerialExporter` in this project writes through `print()` to USB serial output (CDC/REPL).
+There is no `baudrate` setting in `config.py` for this exporter, unlike a classic TTL UART setup.
 
-Le script `tools/serial_receiver.py` (option `--baudrate`) concerne une lecture serie cote PC quand on passe par un port serie configure par le systeme/hardware.
-
+`tools/serial_receiver.py` (`--baudrate`) applies to PC-side serial reading when using a system/hardware serial port.

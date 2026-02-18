@@ -4,30 +4,27 @@ from machine import RTC
 import utime
 from config_wifi import ssid, password
 
-# Connexion au rÃ©seau Wi-Fi
-#ssid = 'votre_ssid'
-#password = 'votre_mot_de_passe'
-
+# Connect to Wi-Fi.
 wlan = network.WLAN(network.STA_IF)
 wlan.active(True)
 wlan.connect(ssid, password)
 
-# Attendre la connexion au Wi-Fi
+# Wait for Wi-Fi connection.
 while not wlan.isconnected():
     utime.sleep(1)
 
-print("ConnectÃ© au rÃ©seau Wi-Fi")
+print("Connected to Wi-Fi")
 
-# Synchroniser l'heure avec un serveur NTP
+# Sync time with NTP server.
 ntptime.settime()
 
-# CrÃ©er une instance de l'horloge RTC
+# Create RTC instance.
 rtc = RTC()
 
-# VÃ©rifier et afficher la date et l'heure dÃ©finies
-print("Heure RTC synchronisÃ©e avec NTP:", rtc.datetime())
+# Check and print synced RTC datetime.
+print("RTC synchronized with NTP:", rtc.datetime())
 
-# Boucle pour afficher l'heure chaque seconde
+# Print current RTC time every second.
 while True:
-    print("Heure actuelle:", rtc.datetime())
+    print("Current time:", rtc.datetime())
     utime.sleep(1)

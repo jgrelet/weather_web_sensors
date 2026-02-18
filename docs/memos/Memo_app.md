@@ -1,42 +1,41 @@
-# Memo App - Evolutions recentes
+# App Memo - Recent Changes
 
-## 1) Stabilite boot/debug
+## 1) Boot/debug stability
 
-- `main.py` ne force plus un reset en boucle apres exception.
-- Les erreurs fatales restent visibles sur le port serie (debug plus simple).
+- `main.py` no longer forces a reset loop after an exception.
+- Fatal errors remain visible on the serial port (easier debugging).
 
-## 2) Gestion capteurs et bus
+## 2) Sensor and bus management
 
-- Separation explicite de deux bus I2C dans `config.py`:
-  - `i2c` (I2C1): SSD1306, DS3231, BME680
-  - `i2c_aux` (I2C0): AHT20, BME280
-- Ajout capteurs applicatifs:
-  - `AHT20Sensor`
-  - `BME280Sensor`
-  - `DHT22Sensor`
-- `BME680Sensor` publie des cles dediees (`sensor_bme680_*`) pour comparaison.
+- Explicit separation of two I2C buses in `config.py`:
+- `i2c` (I2C1): SSD1306, DS3231, BME680
+- `i2c_aux` (I2C0): AHT20, BME280
+- Added application sensors:
+- `AHT20Sensor`
+- `BME280Sensor`
+- `DHT22Sensor`
+- `BME680Sensor` publishes dedicated keys (`sensor_bme680_*`) for comparison.
 
-## 3) UI Web
+## 3) Web UI
 
-- Correction du bug `.format()` dans CSS (accolades echappees).
-- Ajout tableau "Comparaison capteurs" (Temp/Hum/Press).
-- Ajout deltas instantanes vs capteur de reference (`Delta T/H/P`).
+- Fixed `.format()` bug in CSS (escaped braces).
+- Added "Sensor comparison" table (Temp/Hum/Press).
+- Added live deltas versus reference sensor (`Delta T/H/P`).
 
 ## 4) NTP/RTC
 
-- Lecture DS3231 au boot pour initialiser l'horloge systeme.
-- Politique de synchro NTP configurable:
-  - `never`, `always`, `auto`, `pin`
-- En cas de synchro NTP, ecriture retour vers DS3231.
-- Endpoint manuel web: `/sync-ntp` + bouton dans l'interface.
+- Read DS3231 at boot to initialize system clock.
+- Configurable NTP sync policy:
+- `never`, `always`, `auto`, `pin`
+- On NTP sync, time is written back to DS3231.
+- Manual web endpoint: `/sync-ntp` + UI button.
 
-## 5) Configuration et securite
+## 5) Configuration and security
 
-- `config_wifi.py` lit `wifi_secrets.py` si present.
-- `wifi_secrets.py` ajoute a `.gitignore`.
-- `wifi_secrets.example.py` fourni comme modele.
+- `config_wifi.py` reads `wifi_secrets.py` when present.
+- `wifi_secrets.py` added to `.gitignore`.
+- `wifi_secrets.example.py` provided as template.
 
-## 6) Clarification config RTC
+## 6) RTC config clarification
 
-- Renommage `trc` -> `eeprom` pour l'adresse `0x57` (AT24C32).
-
+- Renamed `trc` -> `eeprom` for address `0x57` (AT24C32).

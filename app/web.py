@@ -107,8 +107,8 @@ def render_html(data, refresh_seconds=8, ntp_message=None, current_dt=None):
       </style>
     </head>
     <body>
-      <div class="topnav"><h2>Rpi Pico 2W Weather Debug Server</h2><p>Date et heure: {current_time}</p></div>
-      <div class="actions"><a class="btn" href="/sync-ntp">Synchroniser NTP maintenant</a></div>
+      <div class="topnav"><h2>Rpi Pico 2W Weather Debug Server</h2><p>Date and time: {current_time}</p></div>
+      <div class="actions"><a class="btn" href="/sync-ntp">Sync NTP now</a></div>
       {ntp_banner}
       <div class="cards">
         <div class="card"><h4>Temperature</h4><p class="reading">{temp} C</p></div>
@@ -121,10 +121,10 @@ def render_html(data, refresh_seconds=8, ntp_message=None, current_dt=None):
         <div class="card"><h4>Rain (total)</h4><p class="reading">{raint} mm</p></div>
       </div>
       <div class="compare-wrap">
-        <h3>Comparaison capteurs (reference: {reference_name})</h3>
+        <h3>Sensor comparison (reference: {reference_name})</h3>
         <table class="compare-table">
           <thead>
-            <tr><th>Capteur</th><th>Temperature (C)</th><th>Humidity (%)</th><th>Pressure (hPa)</th><th>Delta T</th><th>Delta H</th><th>Delta P</th></tr>
+            <tr><th>Sensor</th><th>Temperature (C)</th><th>Humidity (%)</th><th>Pressure (hPa)</th><th>Delta T</th><th>Delta H</th><th>Delta P</th></tr>
           </thead>
           <tbody>
             {comparison_rows}
