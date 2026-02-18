@@ -190,6 +190,16 @@ There is no `baudrate` setting in `config.py` for this exporter, unlike a classi
 
 ## Data visualisation
 
+### Web interface 
+
 <img width="1028" height="783" alt="image" src="https://github.com/user-attachments/assets/b2c7bc54-ce5f-44ac-90db-f4be6364fedb" />
 
+### Mosquitto
 
+```bash
+mosquitto_sub -h 192.168.1.48 -p 1883 -t weather/sensors -v
+```
+
+```python
+weather/sensors {"sensor_bme280_temperature_c": 21.23, "wind_dir_cardinal": "W", "sensor_bme680_gas_kohms": 553.17, "sensor_dht22_temperature_c": 20.6, "sensor_bme680_temperature_c": 20.11, "sensor_dht22_humidity_pct": 59.3, "sensor_bme680_humidity_pct": 59.54, "sensor_aht20_humidity_pct": 64.15, "pressure_hpa": 978.34, "temperature_c": 20.11, "gas_kohms": 553.17, "wind_dir_raw": 7905, "sensor_bme680_pressure_hpa": 978.34, "humidity_pct": 59.54, "rain_mm": 0.0, "timestamp": 1771428856, "rain_tips": 0, "wind_dir_deg": 270.0, "wind_speed_kmh": 0.0, "wind_pulses": 0, "sensor_bme280_pressure_hpa": 978.78, "rain_mm_total": 0.0, "sensor_aht20_temperature_c": 20.77}
+```
