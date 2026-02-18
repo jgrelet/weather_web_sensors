@@ -109,7 +109,7 @@ Note:
 
 ### MQTT (publish through broker)
 
-Quick Mosquitto install on Windows (Scoop):
+Quick Mosquitto install on Windows with [Scoop](https://scoop.sh/) (a command-line installer for Windows):
 
 ```bash
 scoop install mosquitto
