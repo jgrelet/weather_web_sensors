@@ -4,6 +4,11 @@ except ImportError:
     import json
 
 try:
+    import usocket as socket
+except ImportError:
+    import socket
+
+try:
     from umqtt.simple import MQTTClient
 except ImportError:
     MQTTClient = None
@@ -78,6 +83,57 @@ class MqttExporter(BaseExporter):
             self._client = None
             client = self._connect()
             client.publish(topic, message, retain=self.retain, qos=self.qos)
+        return True
+
+
+class SerialExporter(BaseExporter):
+    def __init__(self, enabled=False, prefix="JSON"):
+        self.enabled = enabled
+        self.prefix = prefix
+
+    def publish(self, payload):
+        if not self.enabled:
+            return False
+        message = json.dumps(payload)
+        if self.prefix:
+            print("{} {}".format(self.prefix, message))
+        else:
+            print(message)
+        return True
+
+
+class UdpExporter(BaseExporter):
+    def __init__(self, enabled=False, host=None, port=9999):
+        self.enabled = enabled
+        self.host = host
+        self.port = port
+        self._addr = None
+        self._sock = None
+
+    def _connect(self):
+        if not self.host:
+            raise RuntimeError("UDP host is not configured")
+        if self._sock and self._addr:
+            return self._sock, self._addr
+        addr = socket.getaddrinfo(self.host, self.port)[0][-1]
+        self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self._addr = addr
+        return self._sock, self._addr
+
+    def publish(self, payload):
+        if not self.enabled:
+            return False
+        message = json.dumps(payload)
+        if not isinstance(message, bytes):
+            message = message.encode()
+        sock, addr = self._connect()
+        try:
+            sock.sendto(message, addr)
+        except Exception:
+            self._sock = None
+            self._addr = None
+            sock, addr = self._connect()
+            sock.sendto(message, addr)
         return True
 
 
