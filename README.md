@@ -1,19 +1,25 @@
 # Weather Web Sensors - Raspberry Pi Pico 2W
 
 Station meteo MicroPython avec visualisation web locale et comparaison multi-capteurs.
+This project is based from IoT Starters blog [Connecting BMP280 sensor with Raspberry Pi Pico W](https://iotstarters.com/connecting-bmp280-sensor-with-raspberry-pi-pico-w/)
 
 ## Materiel
 
-- Raspberry Pi Pico 2W
-- BME680 (temperature, humidite, pression, gaz)
-- BME280/BMP280 (temperature, pression)
-- AHT20 (temperature, humidite)
-- DHT22 (temperature, humidite)
-- RTC DS3231 (+ EEPROM AT24C32)
-- OLED SSD1306
-- Anemometre + girouette + pluviometre
+- [Raspberry Pico 2W](https://www.raspberrypi.com/products/raspberry-pi-pico-2/)
+- BME680 (temperature, humidity, pressure, gas)
+- [DTH22](https://fr.aliexpress.com/item/32759901711.html?spm=a2g0o.order_list.order_list_main.61.1ab05e5bBsdUCw&gatewayAdapt=glo2fra): Temperature and humidity
+- [AHT20 + BMP280](https://fr.aliexpress.com/item/1005008139283157.html?spm=a2g0o.order_list.order_list_main.66.1ab05e5bBsdUCw&gatewayAdapt=glo2fra): Temperature and atmospheric pressure
+- [OLED display SSD1306](https://fr.aliexpress.com/item/1005007706726114.html?spm=a2g0o.order_list.order_list_main.17.11c35e5bhBt9Yk&gatewayAdapt=glo2fra)
+- Wind sensor + raingage
+- Breadboard and [jumper wires](https://fr.aliexpress.com/item/1005007430055417.html?spm=a2g0o.order_list.order_list_main.16.11c35e5bhBt9Yk&gatewayAdapt=glo2fra)
+- [Thonny](https://thonny.org/) IDE or Visual Studio Code (VSC) with [MicroPico](https://github.com/paulober/MicroPico) extension
+- [Micropython](https://micropython.org/download/RPI_PICO2_W/)
 
 ## Cartographie I2C et GPIO
+
+### Diagram
+
+![image](https://github.com/user-attachments/assets/89be49a1-b381-4cd1-b109-21f744a02b64)
 
 ### Bus I2C1 (principal)
 
