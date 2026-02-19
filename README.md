@@ -10,7 +10,7 @@ This project is based on the IoT Starters blog post [Connecting BMP280 sensor wi
 - [DHT22](https://fr.aliexpress.com/item/32759901711.html?spm=a2g0o.order_list.order_list_main.61.1ab05e5bBsdUCw&gatewayAdapt=glo2fra): temperature and humidity
 - [AHT20 + BMP280](https://fr.aliexpress.com/item/1005008139283157.html?spm=a2g0o.order_list.order_list_main.66.1ab05e5bBsdUCw&gatewayAdapt=glo2fra): temperature and atmospheric pressure
 - [OLED SSD1306 display](https://fr.aliexpress.com/item/1005007706726114.html?spm=a2g0o.order_list.order_list_main.17.11c35e5bhBt9Yk&gatewayAdapt=glo2fra)
-- Wind sensor and rain gauge
+- Wind sensor and rain gauge (not implemented)
 - [DS3231](https://www.analog.com/media/en/technical-documentation/data-sheets/ds3231.pdf) (RTC module)
 - Breadboard and [jumper wires](https://fr.aliexpress.com/item/1005007430055417.html?spm=a2g0o.order_list.order_list_main.16.11c35e5bhBt9Yk&gatewayAdapt=glo2fra)
 - [Thonny](https://thonny.org/) IDE or Visual Studio Code with [MicroPico](https://github.com/paulober/MicroPico)
