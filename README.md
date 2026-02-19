@@ -6,11 +6,12 @@ This project is based on the IoT Starters blog post [Connecting BMP280 sensor wi
 ## Hardware
 
 - [Raspberry Pi Pico 2W](https://www.raspberrypi.com/products/raspberry-pi-pico-2/)
-- BME680 (temperature, humidity, pressure, gas)
+- [BME680](https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bme680-ds001.pdf) (temperature, humidity, pressure, gas)
 - [DHT22](https://fr.aliexpress.com/item/32759901711.html?spm=a2g0o.order_list.order_list_main.61.1ab05e5bBsdUCw&gatewayAdapt=glo2fra): temperature and humidity
 - [AHT20 + BMP280](https://fr.aliexpress.com/item/1005008139283157.html?spm=a2g0o.order_list.order_list_main.66.1ab05e5bBsdUCw&gatewayAdapt=glo2fra): temperature and atmospheric pressure
 - [OLED SSD1306 display](https://fr.aliexpress.com/item/1005007706726114.html?spm=a2g0o.order_list.order_list_main.17.11c35e5bhBt9Yk&gatewayAdapt=glo2fra)
 - Wind sensor and rain gauge
+- [DS3231](https://www.analog.com/media/en/technical-documentation/data-sheets/ds3231.pdf) (RTC module)
 - Breadboard and [jumper wires](https://fr.aliexpress.com/item/1005007430055417.html?spm=a2g0o.order_list.order_list_main.16.11c35e5bhBt9Yk&gatewayAdapt=glo2fra)
 - [Thonny](https://thonny.org/) IDE or Visual Studio Code with [MicroPico](https://github.com/paulober/MicroPico)
 - [MicroPython for Pico 2W](https://micropython.org/download/RPI_PICO2_W/)
@@ -234,3 +235,20 @@ mosquitto_sub -h 192.168.1.48 -p 1883 -t weather/sensors -C 1| python -m json.to
   "rain_mm_total": 0.0,
   "sensor_aht20_temperature_c": 20.77
 }
+
+## Technical appendix
+
+### Resetting Flash memory
+
+For Pico-series devices, BOOTSEL mode lives in read-only memory inside the RP2040 or RP2350 chip, and can’t be overwritten accidentally. No matter what, if you hold down the BOOTSEL button when you plug in your Pico, it will appear as a drive onto which you can drag a new UF2 file. There is no way to brick the board through software. However, there are some circumstances where you might want to make sure your flash memory is empty. You can do this by dragging and dropping a special UF2 flash_nuke.uf2 binary onto your Pico when it is in mass storage mode.
+
+### Download the UF2 files:
+
+https://micropython.org/download/RPI_PICO2_W/
+https://datasheets.raspberrypi.com/soft/flash_nuke.uf2
+
+### RTC module DS3231
+
+<img width="320" height="245" alt="image" src="https://github.com/user-attachments/assets/e578ffde-41ab-4811-afb2-333b8daddb3b" />
+
+The RTC module has a potential problem. The module is designed to be used with a rechargeable lithium battery via a very simple charging circuit (a diode and a resistor powered by 5 V). If you are using a CR2032 battery, simply desolder the diode to prevent the battery from charging, which could damage or even cause it to explode.
