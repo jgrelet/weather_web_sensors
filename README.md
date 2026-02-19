@@ -197,13 +197,17 @@ There is no `baudrate` setting in `config.py` for this exporter, unlike a classi
 
 `tools/serial_receiver.py` (`--baudrate`) applies to PC-side serial reading when using a system/hardware serial port.
 
+## Hardware
+
+<img width="1543" height="803" alt="image" src="https://github.com/user-attachments/assets/e5853433-b947-4fa2-820d-d2fb01fcb56f" />
+
 ## Data visualisation
 
 ### Web interface 
 
 <img width="1028" height="783" alt="image" src="https://github.com/user-attachments/assets/b2c7bc54-ce5f-44ac-90db-f4be6364fedb" />
 
-### Mosquitto
+### Mosquitto preview
 
 ```bash
 mosquitto_sub -h 192.168.1.48 -p 1883 -t weather/sensors -C 1| python -m json.tool
