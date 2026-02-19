@@ -239,6 +239,7 @@ mosquitto_sub -h 192.168.1.48 -p 1883 -t weather/sensors -C 1| python -m json.to
   "rain_mm_total": 0.0,
   "sensor_aht20_temperature_c": 20.77
 }
+```
 
 ## Technical appendix
 
