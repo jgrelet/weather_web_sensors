@@ -71,7 +71,7 @@ SENSORS = {
 EXPORTS = {
     "mqtt": {
         "enabled": False,
-        "broker": "192.168.1.48",
+        "broker": "192.168.1.52",
         "port": 1883,
         "topic": "weather/sensors",
         "client_id": "pico2-weather",
@@ -88,7 +88,7 @@ EXPORTS = {
     },
     "udp": {
         "enabled": True,
-        "host": "192.168.1.48",
+        "host": "192.168.1.52",
         "port": 9999,
     },
     "lorawan": {
