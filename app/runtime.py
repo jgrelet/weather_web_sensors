@@ -240,21 +240,29 @@ def _build_sensor_manager():
 
 
 def _send_html(conn, html):
-    conn.send("HTTP/1.1 200 OK\r\n")
-    conn.send("Content-Type: text/html; charset=utf-8\r\n")
-    conn.send("Cache-Control: no-store\r\n")
-    conn.send("Connection: close\r\n")
-    conn.send("\r\n")
-    conn.sendall(html)
+    body = html.encode("utf-8")
+    headers = (
+        "HTTP/1.1 200 OK\r\n"
+        "Content-Type: text/html; charset=utf-8\r\n"
+        "Cache-Control: no-store\r\n"
+        "Content-Length: {}\r\n"
+        "Connection: close\r\n"
+        "\r\n"
+    ).format(len(body))
+    conn.sendall(headers.encode("utf-8"))
+    conn.sendall(body)
 
 
 def _send_redirect(conn, location="/"):
-    conn.send("HTTP/1.1 303 See Other\r\n")
-    conn.send("Location: {}\r\n".format(location))
-    conn.send("Cache-Control: no-store\r\n")
-    conn.send("Content-Length: 0\r\n")
-    conn.send("Connection: close\r\n")
-    conn.send("\r\n")
+    headers = (
+        "HTTP/1.1 303 See Other\r\n"
+        "Location: {}\r\n"
+        "Cache-Control: no-store\r\n"
+        "Content-Length: 0\r\n"
+        "Connection: close\r\n"
+        "\r\n"
+    ).format(location)
+    conn.sendall(headers.encode("utf-8"))
 
 
 def _path_only(path):
@@ -377,7 +385,7 @@ def main():
         display.show_boot(["Initializing...", "Weather node"])
     led.value(1)
 
-    set_wlan(led)
+    wlan, ip = set_wlan(led)
     if display:
         display.show_boot(["Wifi OK"])
 
@@ -408,19 +416,35 @@ def main():
 
     led.value(0)
 
+    bind_addr = socket.getaddrinfo("0.0.0.0", 80)[0][-1]
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.bind(("", 80))
+    try:
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    except Exception:
+        pass
+    server.bind(bind_addr)
     server.listen(5)
+    print("HTTP server ready on http://{}".format(ip))
+    print("HTTP bind address:", bind_addr)
+    if display:
+        display.show_boot(["Wifi OK", ip, "Web ready"])
 
     while True:
         conn = None
         try:
             if gc.mem_free() < 102000:
                 gc.collect()
+            if not wlan.isconnected():
+                print("Wi-Fi disconnected, reconnecting...")
+                wlan, ip = set_wlan(led)
+                print("HTTP server still listening on http://{}".format(ip))
 
+            print("Waiting for HTTP client...")
             conn, addr = server.accept()
+            print("HTTP client connected:", addr)
             conn.settimeout(3.0)
             request = conn.recv(1024)
+            print("HTTP request bytes:", len(request))
             conn.settimeout(None)
             path = _parse_http_path(request)
             route = _path_only(path)
@@ -450,8 +474,9 @@ def main():
             _send_html(conn, html)
             conn.close()
             print("HTTP request served:", addr)
-        except OSError:
+        except OSError as exc:
             if conn:
                 conn.close()
+            print("HTTP server OSError:", exc)
             time.sleep_ms(100)
 

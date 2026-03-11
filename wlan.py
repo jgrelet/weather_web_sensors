@@ -19,4 +19,5 @@ def set_wlan(led_onboard):
     ip = wlan.ifconfig()[0]
     print('Connection successful')
     print(f'Connected on {ip}')
+    return wlan, ip
 
