@@ -427,7 +427,7 @@ def main():
     print("HTTP server ready on http://{}".format(ip))
     print("HTTP bind address:", bind_addr)
     if display:
-        display.show_boot(["Wifi OK", ip, "Web ready"])
+        display.show_boot(["Wifi OK", ip, "Web ready", "Waiting HTTP"])
 
     while True:
         conn = None
@@ -438,6 +438,8 @@ def main():
                 print("Wi-Fi disconnected, reconnecting...")
                 wlan, ip = set_wlan(led)
                 print("HTTP server still listening on http://{}".format(ip))
+                if display:
+                    display.show_boot(["Wifi OK", ip, "Web ready", "Waiting HTTP"])
 
             print("Waiting for HTTP client...")
             conn, addr = server.accept()
