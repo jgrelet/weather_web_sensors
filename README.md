@@ -83,7 +83,7 @@ Behavior:
 1. Flash MicroPython on Pico 2W
 2. Deploy the project
 3. Run `main.py`
-4. Open the displayed IP in a browser (example: `http://192.168.1.54`)
+4. Open the displayed IP in a browser (example: `http://192.168.1.58`)
 
 ## Export Visualization (UDP and MQTT)
 
@@ -125,16 +125,22 @@ listener 1883 0.0.0.0
 allow_anonymous true
 ```
 
-2. Start Mosquitto with this config:
+2. Start Mosquitto 'broker' with this config under msdos:
+
+```dos
+mosquitto -c .\mosquitto.conf -v
+```
+
+or under bash
 
 ```bash
-mosquitto -c .\mosquitto.conf -v
+mosquitto -c ./mosquitto.conf -v
 ```
 
 3. Verify subscription from the PC:
 
 ```bash
-mosquitto_sub -h 192.168.1.48 -p 1883 -t weather/sensors -v
+mosquitto_sub -h 192.168.1.52 -p 1883 -t weather/sensors -v
 ```
 
 If Mosquitto shows `Starting in local only mode`, the broker was not started with a network listener.
@@ -144,7 +150,7 @@ Pico configuration (`config.py` -> `EXPORTS["mqtt"]`):
 ```python
 "mqtt": {
     "enabled": True,
-    "broker": "192.168.1.48",  # MQTT broker IP (for example Mosquitto)
+    "broker": "192.168.1.52",  # MQTT broker IP (for example Mosquitto)
     "port": 1883,
     "topic": "weather/sensors",
     ...
@@ -154,23 +160,24 @@ Pico configuration (`config.py` -> `EXPORTS["mqtt"]`):
 PC visualization (subscriber):
 
 ```bash
-mosquitto_sub -h 192.168.1.48 -p 1883 -t weather/sensors -v
+mosquitto_sub -h <PC IP> -p 1883 -t weather/sensors -v
+mosquitto_sub -h 192.168.1.52 -p 1883 -t weather/sensors -v
 ```
 
 Quick validation memo:
 
 ```bash
 # 1) Show topic + JSON payload
-mosquitto_sub -h 192.168.1.48 -p 1883 -t weather/sensors -v
+mosquitto_sub -h 192.168.1.52 -p 1883 -t weather/sensors -v
 
 # 2) Show MQTT client debug exchanges (CONNECT/SUBSCRIBE/PUBLISH)
-mosquitto_sub -d -h 192.168.1.48 -p 1883 -t weather/sensors -v
+mosquitto_sub -d -h 192.168.1.52 -p 1883 -t weather/sensors -v
 
 # 3) Validate one JSON payload decoding
-mosquitto_sub -h 192.168.1.48 -p 1883 -t weather/sensors -C 1| python -m json.tool
+mosquitto_sub -h 192.168.1.52 -p 1883 -t weather/sensors -C 1| python -m json.tool
 
 # 4) Validate all JSON payload decoding (use with Powershell)
-mosquitto_sub -h 192.168.1.48 -p 1883 -t weather/sensors |
+mosquitto_sub -h 192.168.1.52 -p 1883 -t weather/sensors |
   ForEach-Object {
     if ($_ -and $_.Trim()) {
       $_ | python -m json.tool
@@ -187,7 +194,7 @@ Why different ports:
 - UDP export is a separate transport, here on UDP/9999 to a local receiver
 
 Quick troubleshooting:
-- `connection refused` on `192.168.1.48:1883`: broker not started, missing network listener, or Windows firewall blocking TCP 1883
+- `connection refused` on `192.168.1.52:1883`: broker not started, missing network listener, or Windows firewall blocking TCP 1883
 - `Unknown configuration variable '...listener'`: `mosquitto.conf` saved with UTF-8 BOM. Save without BOM (ASCII or UTF-8 without BOM)
 
 ## Serial Port and Baud Rate
@@ -210,7 +217,7 @@ There is no `baudrate` setting in `config.py` for this exporter, unlike a classi
 ### Mosquitto preview
 
 ```bash
-mosquitto_sub -h 192.168.1.48 -p 1883 -t weather/sensors -C 1| python -m json.tool
+mosquitto_sub -h 192.168.1.52 -p 1883 -t weather/sensors -C 1| python -m json.tool
 ```
 
 ```json

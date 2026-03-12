@@ -70,7 +70,7 @@ SENSORS = {
 
 EXPORTS = {
     "mqtt": {
-        "enabled": False,
+        "enabled": True,
         "broker": "192.168.1.52",
         "port": 1883,
         "topic": "weather/sensors",
