@@ -1,3 +1,5 @@
+import time
+
 from ssd1306 import SSD1306_I2C
 
 
@@ -27,7 +29,14 @@ class Display:
 
     def show_reading(self, data):
         self._oled.fill(0)
-        self._oled.text("Weather debug", 0, 0)
+        now = time.localtime()
+        self._oled.text(
+            "{:02d}/{:02d} {:02d}:{:02d}:{:02d}".format(
+                now[1], now[2], now[3], now[4], now[5]
+            ),
+            0,
+            0,
+        )
         self._oled.hline(0, 10, 128, 1)
         self._oled.text(
             "T:{}C H:{}%".format(

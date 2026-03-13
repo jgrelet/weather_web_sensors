@@ -107,7 +107,7 @@ def render_html(data, refresh_seconds=8, ntp_message=None, current_dt=None):
       </style>
     </head>
     <body>
-      <div class="topnav"><h2>Rpi Pico 2W Weather Debug Server</h2><p>Date and time: {current_time}</p></div>
+      <div class="topnav"><h2>Rpi Pico2-w Weather testing server</h2><p>Date and time: {current_time}</p></div>
       <div class="actions"><a class="btn" href="/sync-ntp">Sync NTP now</a></div>
       {ntp_banner}
       <div class="cards">

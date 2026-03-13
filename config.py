@@ -70,7 +70,7 @@ SENSORS = {
 
 EXPORTS = {
     "mqtt": {
-        "enabled": True,
+        "enabled": False,
         "broker": "192.168.1.52",
         "port": 1883,
         "topic": "weather/sensors",
@@ -87,7 +87,7 @@ EXPORTS = {
         "prefix": "JSON",
     },
     "udp": {
-        "enabled": True,
+        "enabled": False,
         "host": "192.168.1.52",
         "port": 9999,
     },
@@ -109,5 +109,6 @@ APP = {
     "ntp_trigger_active_high": True,
     "ntp_trigger_pull": "up",  # "up", "down", or None
     "use_ntp": True,  # Legacy compatibility; ignored when ntp_sync_mode is set.
-    "web_refresh_seconds": 8,
+    "acquisition_interval_seconds": 5,
+    "web_refresh_seconds": 5,
 }

@@ -77,6 +77,7 @@ Behavior:
 - Sensor comparison table with deltas (`Delta T/H/P`)
 - Manual NTP endpoint: `GET /sync-ntp`
 - UI button: "Sync NTP now"
+- The browser displays the latest measurement cached on the Pico; it no longer triggers acquisition.
 
 ## Run
 
@@ -84,6 +85,13 @@ Behavior:
 2. Deploy the project
 3. Run `main.py`
 4. Open the displayed IP in a browser (example: `http://192.168.1.58`)
+
+## Acquisition Mode
+
+- Acquisition now starts directly on the Pico at boot.
+- The default acquisition period follows `APP["web_refresh_seconds"]`.
+- You can override it with `APP["acquisition_interval_seconds"]` in `config.py`.
+- The remote browser is now optional and only displays the latest cached data.
 
 ## Export Visualization (UDP and MQTT)
 
@@ -106,7 +114,7 @@ python tools/udp_receiver.py --host 0.0.0.0 --port 9999
 ```
 
 Note:
-- Export is sent on each sensor read (in this app, when an HTTP request hits the web UI).
+- Export is sent on each autonomous acquisition cycle.
 
 ### MQTT (publish through broker)
 

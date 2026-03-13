@@ -331,7 +331,33 @@ def _print_export_modes(mqtt_cfg, serial_cfg, udp_cfg, lorawan_cfg):
     else:
         print(" - LORAWAN: OFF")
 
-    print("Export trigger: each sensor reading (in this app, on HTTP request).")
+    print("Export trigger: each autonomous acquisition cycle.")
+
+
+def _acquisition_interval_ms(app_cfg):
+    seconds = app_cfg.get("acquisition_interval_seconds")
+    if seconds is None:
+        seconds = app_cfg.get("web_refresh_seconds", 8)
+    try:
+        seconds = float(seconds)
+    except Exception:
+        seconds = 8
+    if seconds <= 0:
+        seconds = 1
+    return int(seconds * 1000)
+
+
+def _perform_acquisition(sensors, exporters, display):
+    started_ms = time.ticks_ms()
+    reading = sensors.read_all()
+    export_results = exporters.publish_all(reading)
+    for exporter_name, exporter_result in export_results.items():
+        if isinstance(exporter_result, str):
+            print("Export error [{}]: {}".format(exporter_name, exporter_result))
+    if display:
+        display.show_reading(reading)
+    duration_ms = time.ticks_diff(time.ticks_ms(), started_ms)
+    return reading, duration_ms
 
 
 def main():
@@ -424,10 +450,16 @@ def main():
         pass
     server.bind(bind_addr)
     server.listen(5)
+    server.settimeout(1.0)
     print("HTTP server ready on http://{}".format(ip))
     print("HTTP bind address:", bind_addr)
+    acquisition_interval_ms = _acquisition_interval_ms(APP)
+    print("Acquisition interval:", acquisition_interval_ms, "ms")
     if display:
-        display.show_boot(["Wifi OK", ip, "Web ready", "Waiting HTTP"])
+        display.show_boot(["Wifi OK", ip, "Web ready", "Auto acquire"])
+
+    last_reading = None
+    last_acquisition_ms = time.ticks_add(time.ticks_ms(), -acquisition_interval_ms)
 
     while True:
         conn = None
@@ -439,9 +471,28 @@ def main():
                 wlan, ip = set_wlan(led)
                 print("HTTP server still listening on http://{}".format(ip))
                 if display:
-                    display.show_boot(["Wifi OK", ip, "Web ready", "Waiting HTTP"])
+                    display.show_boot(["Wifi OK", ip, "Web ready", "Auto acquire"])
 
-            print("Waiting for HTTP client...")
+            now_ms = time.ticks_ms()
+            if (
+                last_reading is None
+                or time.ticks_diff(now_ms, last_acquisition_ms) >= acquisition_interval_ms
+            ):
+                last_reading, acquisition_duration_ms = _perform_acquisition(
+                    sensors, exporters, display
+                )
+                last_acquisition_ms = now_ms
+                print(
+                    "Acquisition updated at {:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(
+                        *time.localtime()[:6]
+                    )
+                )
+                print("Acquisition duration:", acquisition_duration_ms, "ms")
+                if acquisition_duration_ms > acquisition_interval_ms:
+                    print(
+                        "Acquisition overrun: cycle took longer than configured interval."
+                    )
+
             conn, addr = server.accept()
             print("HTTP client connected:", addr)
             conn.settimeout(3.0)
@@ -459,15 +510,8 @@ def main():
                 conn.close()
                 continue
 
-            reading = sensors.read_all()
-            export_results = exporters.publish_all(reading)
-            for exporter_name, exporter_result in export_results.items():
-                if isinstance(exporter_result, str):
-                    print("Export error [{}]: {}".format(exporter_name, exporter_result))
-            if display:
-                display.show_reading(reading)
             html = render_html(
-                reading,
+                last_reading or {},
                 refresh_seconds=APP["web_refresh_seconds"],
                 ntp_message=ntp_message,
                 current_dt=time.localtime(),
@@ -479,6 +523,8 @@ def main():
         except OSError as exc:
             if conn:
                 conn.close()
+            if exc.args and exc.args[0] in (110, "timed out"):
+                continue
             print("HTTP server OSError:", exc)
             time.sleep_ms(100)
 
