@@ -15,7 +15,7 @@ except ImportError:
 
 
 class BaseExporter:
-    def publish(self, payload):
+    def publish(self, payload, route=None):
         raise NotImplementedError
 
 
@@ -68,11 +68,14 @@ class MqttExporter(BaseExporter):
         self._client = client
         return client
 
-    def publish(self, payload):
+    def publish(self, payload, route=None):
         if not self.enabled:
             return False
 
-        topic = self.topic if isinstance(self.topic, bytes) else str(self.topic).encode()
+        topic_name = self.topic
+        if route:
+            topic_name = route.get("topic", topic_name)
+        topic = topic_name if isinstance(topic_name, bytes) else str(topic_name).encode()
         message = json.dumps(payload)
         if not isinstance(message, bytes):
             message = message.encode()
@@ -91,12 +94,15 @@ class SerialExporter(BaseExporter):
         self.enabled = enabled
         self.prefix = prefix
 
-    def publish(self, payload):
+    def publish(self, payload, route=None):
         if not self.enabled:
             return False
         message = json.dumps(payload)
-        if self.prefix:
-            print("{} {}".format(self.prefix, message))
+        prefix = self.prefix
+        if route:
+            prefix = route.get("prefix", prefix)
+        if prefix:
+            print("{} {}".format(prefix, message))
         else:
             print(message)
         return True
@@ -120,7 +126,7 @@ class UdpExporter(BaseExporter):
         self._addr = addr
         return self._sock, self._addr
 
-    def publish(self, payload):
+    def publish(self, payload, route=None):
         if not self.enabled:
             return False
         message = json.dumps(payload)
@@ -142,7 +148,7 @@ class LoRaWanExporter(BaseExporter):
         self.enabled = enabled
         self.port = port
 
-    def publish(self, payload):
+    def publish(self, payload, route=None):
         if not self.enabled:
             return False
         # TODO: Integrate your LoRaWAN modem/stack here.
@@ -154,12 +160,25 @@ class ExportManager:
     def __init__(self, exporters=None):
         self._exporters = exporters or []
 
-    def publish_all(self, payload):
+    def publish_all(self, payload, route=None):
         results = {}
         for exporter in self._exporters:
             name = exporter.__class__.__name__
             try:
-                results[name] = exporter.publish(payload)
+                results[name] = exporter.publish(payload, route=route)
+            except Exception as exc:
+                results[name] = str(exc)
+        return results
+
+    def publish_due(self, payload, route=None):
+        results = {}
+        for exporter in self._exporters:
+            name = exporter.__class__.__name__
+            if not getattr(exporter, "enabled", False):
+                results[name] = False
+                continue
+            try:
+                results[name] = exporter.publish(payload, route=route)
             except Exception as exc:
                 results[name] = str(exc)
         return results

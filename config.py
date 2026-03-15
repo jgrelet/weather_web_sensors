@@ -70,8 +70,8 @@ SENSORS = {
 
 EXPORTS = {
     "mqtt": {
-        "enabled": False,
-        "broker": "192.168.1.52",
+        "enabled": True,
+        "broker": "192.168.1.70",
         "port": 1883,
         "topic": "weather/sensors",
         "client_id": "pico2-weather",
@@ -110,5 +110,6 @@ APP = {
     "ntp_trigger_pull": "up",  # "up", "down", or None
     "use_ntp": True,  # Legacy compatibility; ignored when ntp_sync_mode is set.
     "acquisition_interval_seconds": 5,
+    "aggregation_interval_seconds": 60,
     "web_refresh_seconds": 5,
 }

@@ -25,6 +25,7 @@ from app.exporters import (
     SerialExporter,
     UdpExporter,
 )
+from app.stats_buffer import CircularStatsBuffer
 from app.web import render_html
 
 
@@ -297,11 +298,15 @@ def _manual_ntp_sync(i2c_cfg, rtc_cfg):
 def _print_export_modes(mqtt_cfg, serial_cfg, udp_cfg, lorawan_cfg):
     print("Transmission modes:")
     if mqtt_cfg.get("enabled", False):
+        topic = mqtt_cfg.get("topic", "weather/sensors")
         print(
-            " - MQTT: ON -> {}:{} topic={}".format(
+            " - MQTT: ON -> {}:{} raw_topic={} every {} s | aggregated_topic={} every {} s".format(
                 mqtt_cfg.get("broker"),
                 mqtt_cfg.get("port", 1883),
-                mqtt_cfg.get("topic", "weather/sensors"),
+                _mqtt_raw_topic(topic),
+                APP.get("acquisition_interval_seconds", APP.get("web_refresh_seconds", 8)),
+                topic,
+                APP.get("aggregation_interval_seconds", 300),
             )
         )
     else:
@@ -309,9 +314,11 @@ def _print_export_modes(mqtt_cfg, serial_cfg, udp_cfg, lorawan_cfg):
 
     if udp_cfg.get("enabled", False):
         print(
-            " - UDP: ON -> {}:{}".format(
+            " - UDP: ON -> {}:{} raw every {} s | aggregated every {} s".format(
                 udp_cfg.get("host"),
                 udp_cfg.get("port", 9999),
+                APP.get("acquisition_interval_seconds", APP.get("web_refresh_seconds", 8)),
+                APP.get("aggregation_interval_seconds", 300),
             )
         )
     else:
@@ -319,45 +326,101 @@ def _print_export_modes(mqtt_cfg, serial_cfg, udp_cfg, lorawan_cfg):
 
     if serial_cfg.get("enabled", False):
         print(
-            " - SERIAL: ON (prefix={})".format(
+            " - SERIAL: ON (raw_prefix={} every {} s | aggregated_prefix={} every {} s)".format(
+                _serial_raw_prefix(serial_cfg.get("prefix", "JSON")),
+                APP.get("acquisition_interval_seconds", APP.get("web_refresh_seconds", 8)),
                 serial_cfg.get("prefix", "JSON"),
+                APP.get("aggregation_interval_seconds", 300),
             )
         )
     else:
         print(" - SERIAL: OFF")
 
     if lorawan_cfg.get("enabled", False):
-        print(" - LORAWAN: ON (port={})".format(lorawan_cfg.get("port", 1)))
+        print(
+            " - LORAWAN: ON (port={} raw every {} s | aggregated every {} s)".format(
+                lorawan_cfg.get("port", 1),
+                APP.get("acquisition_interval_seconds", APP.get("web_refresh_seconds", 8)),
+                APP.get("aggregation_interval_seconds", 300),
+            )
+        )
     else:
         print(" - LORAWAN: OFF")
 
-    print("Export trigger: each autonomous acquisition cycle.")
+    print("Export trigger: raw sensor snapshots and aggregated snapshots are exported separately.")
 
 
-def _acquisition_interval_ms(app_cfg):
-    seconds = app_cfg.get("acquisition_interval_seconds")
+def _mqtt_raw_topic(base_topic):
+    return "{}/raw".format(base_topic.rstrip("/"))
+
+
+def _serial_raw_prefix(base_prefix):
+    if not base_prefix:
+        return "RAW"
+    return "{}_RAW".format(base_prefix)
+
+
+def _build_export_payload(reading, export_mode, emitted_at, interval_seconds):
+    payload = dict(reading or {})
+    payload["export_mode"] = export_mode
+    payload["export_interval_seconds"] = int(interval_seconds)
+    if payload.get("timestamp") is None:
+        payload["timestamp"] = emitted_at
+    return payload
+
+
+def _interval_ms(seconds, default_seconds):
     if seconds is None:
-        seconds = app_cfg.get("web_refresh_seconds", 8)
+        seconds = default_seconds
     try:
         seconds = float(seconds)
     except Exception:
-        seconds = 8
+        seconds = default_seconds
     if seconds <= 0:
         seconds = 1
     return int(seconds * 1000)
 
 
-def _perform_acquisition(sensors, exporters, display):
+def _sensor_acquisition_interval_ms(app_cfg):
+    seconds = app_cfg.get("acquisition_interval_seconds")
+    if seconds is None:
+        seconds = app_cfg.get("web_refresh_seconds", 8)
+    return _interval_ms(seconds, 8)
+
+
+def _aggregation_interval_ms(app_cfg, sensor_interval_ms):
+    aggregation_ms = _interval_ms(
+        app_cfg.get("aggregation_interval_seconds"),
+        sensor_interval_ms / 1000,
+    )
+    if aggregation_ms < sensor_interval_ms:
+        return sensor_interval_ms
+    return aggregation_ms
+
+
+def _buffer_capacity(sensor_interval_ms, aggregation_interval_ms):
+    return max(1, (aggregation_interval_ms + sensor_interval_ms - 1) // sensor_interval_ms)
+
+
+def _perform_acquisition(sensors, display):
     started_ms = time.ticks_ms()
     reading = sensors.read_all()
-    export_results = exporters.publish_all(reading)
-    for exporter_name, exporter_result in export_results.items():
-        if isinstance(exporter_result, str):
-            print("Export error [{}]: {}".format(exporter_name, exporter_result))
     if display:
         display.show_reading(reading)
     duration_ms = time.ticks_diff(time.ticks_ms(), started_ms)
     return reading, duration_ms
+
+
+def _log_export_results(export_results, export_mode):
+    for exporter_name, exporter_result in export_results.items():
+        if isinstance(exporter_result, str):
+            print(
+                "Export error [{}:{}]: {}".format(
+                    export_mode, exporter_name, exporter_result
+                )
+            )
+        elif exporter_result:
+            print("Exported {} via {}.".format(export_mode, exporter_name))
 
 
 def main():
@@ -453,13 +516,21 @@ def main():
     server.settimeout(1.0)
     print("HTTP server ready on http://{}".format(ip))
     print("HTTP bind address:", bind_addr)
-    acquisition_interval_ms = _acquisition_interval_ms(APP)
-    print("Acquisition interval:", acquisition_interval_ms, "ms")
+    acquisition_interval_ms = _sensor_acquisition_interval_ms(APP)
+    aggregation_interval_ms = _aggregation_interval_ms(APP, acquisition_interval_ms)
+    buffer_capacity = _buffer_capacity(acquisition_interval_ms, aggregation_interval_ms)
+    print("Sensor acquisition interval:", acquisition_interval_ms, "ms")
+    print("Aggregation interval:", aggregation_interval_ms, "ms")
+    print("Ring buffer capacity:", buffer_capacity, "samples")
     if display:
         display.show_boot(["Wifi OK", ip, "Web ready", "Auto acquire"])
 
+    stats_buffer = CircularStatsBuffer(buffer_capacity)
     last_reading = None
+    last_aggregate_reading = None
+    web_reading = None
     last_acquisition_ms = time.ticks_add(time.ticks_ms(), -acquisition_interval_ms)
+    aggregation_started_ms = None
 
     while True:
         conn = None
@@ -478,10 +549,11 @@ def main():
                 last_reading is None
                 or time.ticks_diff(now_ms, last_acquisition_ms) >= acquisition_interval_ms
             ):
-                last_reading, acquisition_duration_ms = _perform_acquisition(
-                    sensors, exporters, display
-                )
+                last_reading, acquisition_duration_ms = _perform_acquisition(sensors, display)
                 last_acquisition_ms = now_ms
+                stats_buffer.add(last_reading)
+                if aggregation_started_ms is None:
+                    aggregation_started_ms = now_ms
                 print(
                     "Acquisition updated at {:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(
                         *time.localtime()[:6]
@@ -492,6 +564,39 @@ def main():
                     print(
                         "Acquisition overrun: cycle took longer than configured interval."
                     )
+                raw_payload = _build_export_payload(
+                    last_reading,
+                    "raw",
+                    time.time(),
+                    acquisition_interval_ms // 1000,
+                )
+                raw_route = {
+                    "topic": _mqtt_raw_topic(mqtt_cfg.get("topic", "weather/sensors")),
+                    "prefix": _serial_raw_prefix(serial_cfg.get("prefix", "JSON")),
+                }
+                export_results = exporters.publish_due(raw_payload, route=raw_route)
+                _log_export_results(export_results, "raw")
+                if time.ticks_diff(now_ms, aggregation_started_ms) >= aggregation_interval_ms:
+                    aggregate_reading = stats_buffer.build_snapshot(
+                        window_seconds=aggregation_interval_ms // 1000,
+                        closed_at=time.time(),
+                    )
+                    last_aggregate_reading = _build_export_payload(
+                        aggregate_reading,
+                        "aggregated",
+                        time.time(),
+                        aggregation_interval_ms // 1000,
+                    )
+                    web_reading = last_aggregate_reading
+                    stats_buffer.reset()
+                    aggregation_started_ms = now_ms
+                    print(
+                        "Aggregate snapshot ready with",
+                        last_aggregate_reading.get("aggregation_samples", 0),
+                        "samples.",
+                    )
+                    export_results = exporters.publish_due(last_aggregate_reading)
+                    _log_export_results(export_results, "aggregated")
 
             conn, addr = server.accept()
             print("HTTP client connected:", addr)
@@ -511,7 +616,7 @@ def main():
                 continue
 
             html = render_html(
-                last_reading or {},
+                web_reading or last_reading or {},
                 refresh_seconds=APP["web_refresh_seconds"],
                 ntp_message=ntp_message,
                 current_dt=time.localtime(),
