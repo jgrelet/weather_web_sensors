@@ -423,6 +423,22 @@ def _log_export_results(export_results, export_mode):
             print("Exported {} via {}.".format(export_mode, exporter_name))
 
 
+def _build_web_reading(last_reading, aggregate_reading=None):
+    snapshot = dict(last_reading or {})
+    if aggregate_reading:
+        for key, value in aggregate_reading.items():
+            if (
+                key.startswith("aggregation_")
+                or key.endswith("_mean")
+                or key.endswith("_median")
+                or key.endswith("_stddev")
+                or key.endswith("_samples")
+                or key.endswith("_sum")
+            ):
+                snapshot[key] = value
+    return snapshot
+
+
 def main():
     gc.collect()
     led = Pin("LED", Pin.OUT)
@@ -552,6 +568,7 @@ def main():
                 last_reading, acquisition_duration_ms = _perform_acquisition(sensors, display)
                 last_acquisition_ms = now_ms
                 stats_buffer.add(last_reading)
+                web_reading = _build_web_reading(last_reading, last_aggregate_reading)
                 if aggregation_started_ms is None:
                     aggregation_started_ms = now_ms
                 print(
@@ -587,7 +604,7 @@ def main():
                         time.time(),
                         aggregation_interval_ms // 1000,
                     )
-                    web_reading = last_aggregate_reading
+                    web_reading = _build_web_reading(last_reading, last_aggregate_reading)
                     stats_buffer.reset()
                     aggregation_started_ms = now_ms
                     print(
