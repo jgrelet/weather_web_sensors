@@ -109,7 +109,7 @@ APP = {
     "ntp_trigger_active_high": True,
     "ntp_trigger_pull": "up",  # "up", "down", or None
     "use_ntp": True,  # Legacy compatibility; ignored when ntp_sync_mode is set.
-    "acquisition_interval_seconds": 5,
-    "aggregation_interval_seconds": 60,
-    "web_refresh_seconds": 5,
+    "acquisition_interval_seconds": 60,
+    "aggregation_interval_seconds": 3600,
+    "web_refresh_seconds": 60,
 }
