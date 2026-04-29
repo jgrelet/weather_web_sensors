@@ -37,6 +37,85 @@ def _dec_to_bcd(value):
     return ((value // 10) << 4) | (value % 10)
 
 
+def _days_in_month(year, month):
+    if month == 2:
+        if (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0):
+            return 29
+        return 28
+    if month in (4, 6, 9, 11):
+        return 30
+    return 31
+
+
+def _weekday(year, month, day):
+    offsets = (0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4)
+    adjusted_year = year - 1 if month < 3 else year
+    sunday_based = (
+        adjusted_year
+        + adjusted_year // 4
+        - adjusted_year // 100
+        + adjusted_year // 400
+        + offsets[month - 1]
+        + day
+    ) % 7
+    return (sunday_based - 1) % 7
+
+
+def _last_sunday_day(year, month):
+    days = _days_in_month(year, month)
+    weekday = _weekday(year, month, days)
+    return days - ((weekday + 1) % 7)
+
+
+def _is_paris_dst(utc_dt):
+    year, month, day, hour, _, _, _, _ = utc_dt
+    if month < 3 or month > 10:
+        return False
+    if 3 < month < 10:
+        return True
+
+    march_switch_day = _last_sunday_day(year, 3)
+    october_switch_day = _last_sunday_day(year, 10)
+    if month == 3:
+        return day > march_switch_day or (day == march_switch_day and hour >= 1)
+    return day < october_switch_day or (day == october_switch_day and hour < 1)
+
+
+def _paris_localtime(utc_dt=None):
+    if utc_dt is None:
+        utc_dt = time.localtime()
+
+    year, month, day, hour, minute, second, weekday, yearday = utc_dt
+    hour += 2 if _is_paris_dst(utc_dt) else 1
+
+    while hour >= 24:
+        hour -= 24
+        day += 1
+        weekday = (weekday + 1) % 7
+        if day > _days_in_month(year, month):
+            day = 1
+            month += 1
+            if month > 12:
+                month = 1
+                year += 1
+
+    return (year, month, day, hour, minute, second, weekday, yearday)
+
+
+def _paris_timezone_name(utc_dt=None):
+    if utc_dt is None:
+        utc_dt = time.localtime()
+    return "CEST" if _is_paris_dst(utc_dt) else "CET"
+
+
+def _format_datetime(dt):
+    if not dt or len(dt) < 6:
+        return "-"
+    return "{:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(
+        dt[0], dt[1], dt[2], dt[3], dt[4], dt[5]
+    )
+
+
 def _open_i2c_from_cfg(i2c_cfg):
     return I2C(
         i2c_cfg["id"],
@@ -287,10 +366,8 @@ def _manual_ntp_sync(i2c_cfg, rtc_cfg):
     try:
         ntptime.settime()
         _save_rtc_to_ds3231(i2c_cfg, rtc_cfg)
-        ts = time.localtime()
-        return "NTP sync OK {:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(
-            ts[0], ts[1], ts[2], ts[3], ts[4], ts[5]
-        )
+        ts = _paris_localtime(time.localtime())
+        return "NTP sync OK {} (Paris)".format(_format_datetime(ts))
     except Exception as exc:
         return "NTP sync failed: {}".format(exc)
 
@@ -366,6 +443,14 @@ def _build_export_payload(reading, export_mode, emitted_at, interval_seconds):
     payload["export_interval_seconds"] = int(interval_seconds)
     if payload.get("timestamp") is None:
         payload["timestamp"] = emitted_at
+    timestamp = payload.get("timestamp")
+    try:
+        utc_dt = time.localtime(timestamp)
+        paris_dt = _paris_localtime(utc_dt)
+        payload["datetime_paris"] = _format_datetime(paris_dt)
+        payload["timezone"] = _paris_timezone_name(utc_dt)
+    except Exception:
+        pass
     return payload
 
 
@@ -508,10 +593,8 @@ def main():
         try:
             ntptime.settime()
             _save_rtc_to_ds3231(SENSORS["i2c"], rtc_cfg)
-            ts = time.localtime()
-            last_ntp_message = "NTP sync OK {:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(
-                ts[0], ts[1], ts[2], ts[3], ts[4], ts[5]
-            )
+            ts = _paris_localtime(time.localtime())
+            last_ntp_message = "NTP sync OK {} (Paris)".format(_format_datetime(ts))
             if display:
                 display.show_boot(["Wifi OK", "NTP OK"])
         except Exception as exc:
@@ -572,8 +655,8 @@ def main():
                 if aggregation_started_ms is None:
                     aggregation_started_ms = now_ms
                 print(
-                    "Acquisition updated at {:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(
-                        *time.localtime()[:6]
+                    "Acquisition updated at {} Paris".format(
+                        _format_datetime(_paris_localtime(time.localtime()))
                     )
                 )
                 print("Acquisition duration:", acquisition_duration_ms, "ms")
@@ -636,7 +719,7 @@ def main():
                 web_reading or last_reading or {},
                 refresh_seconds=APP["web_refresh_seconds"],
                 ntp_message=ntp_message,
-                current_dt=time.localtime(),
+                current_dt=_paris_localtime(time.localtime()),
             )
 
             _send_html(conn, html)

@@ -115,6 +115,9 @@ python tools/udp_receiver.py --host 0.0.0.0 --port 9999
 
 Note:
 - Export is sent on each autonomous acquisition cycle.
+- Export payloads keep `timestamp` as Unix epoch and also include a Paris-local formatted datetime:
+  - `datetime_paris`: local date/time in Paris
+  - `timezone`: `CET` or `CEST` depending on daylight saving time
 
 ### MQTT (publish through broker)
 
@@ -205,6 +208,11 @@ Quick troubleshooting:
 - `connection refused` on `192.168.1.52:1883`: broker not started, missing network listener, or Windows firewall blocking TCP 1883
 - `Unknown configuration variable '...listener'`: `mosquitto.conf` saved with UTF-8 BOM. Save without BOM (ASCII or UTF-8 without BOM)
 
+Timestamp fields in exported JSON:
+- `timestamp`: Unix epoch, preserved for machine processing and compatibility
+- `datetime_paris`: Paris local time rendered from the same instant
+- `timezone`: `CET` in winter, `CEST` in summer
+
 ## Serial Port and Baud Rate
 
 `SerialExporter` in this project writes through `print()` to USB serial output (CDC/REPL).
@@ -246,6 +254,8 @@ mosquitto_sub -h 192.168.1.52 -p 1883 -t weather/sensors -C 1| python -m json.to
   "humidity_pct": 59.54,
   "rain_mm": 0.0,
   "timestamp": 1771428856,
+  "datetime_paris": "2026-02-19 16:20:56",
+  "timezone": "CET",
   "rain_tips": 0,
   "wind_dir_deg": 270.0,
   "wind_speed_kmh": 0.0,
