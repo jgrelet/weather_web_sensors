@@ -117,7 +117,7 @@ def _fmt_datetime(ts):
     )
 
 
-def render_html(data, refresh_seconds=8, ntp_message=None, current_dt=None):
+def render_html(data, refresh_seconds=8, ntp_message=None, current_dt=None, timezone_label="Local"):
     comparison_rows, reference_name = _render_compare_rows(data)
     ntp_banner = ""
     if ntp_message:
@@ -147,7 +147,7 @@ def render_html(data, refresh_seconds=8, ntp_message=None, current_dt=None):
       </style>
     </head>
     <body>
-      <div class="topnav"><h2>Rpi Pico2-w Weather testing server</h2><p>Date and time (Paris): {current_time}</p></div>
+      <div class="topnav"><h2>Rpi Pico2-w Weather testing server</h2><p>Date and time ({timezone_label}): {current_time}</p></div>
       <div class="actions"><a class="btn" href="/sync-ntp">Sync NTP now</a></div>
       {ntp_banner}
       <div class="meta"><p>Aggregation window: {agg_window}s | Samples: {agg_samples}</p></div>
@@ -220,4 +220,5 @@ def render_html(data, refresh_seconds=8, ntp_message=None, current_dt=None):
         reference_name=reference_name,
         ntp_banner=ntp_banner,
         current_time=current_time,
+        timezone_label=timezone_label,
     )

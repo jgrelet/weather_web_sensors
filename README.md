@@ -62,6 +62,11 @@ password = "YOUR_WIFI_PASSWORD"
 
 Sync policy is configured in `config.py` -> `APP`:
 
+- `timezone` for local display/web rendering
+  - `name` display label such as `Europe/Paris`
+  - `standard_offset_minutes` / `dst_offset_minutes`
+  - `dst_rule = "eu" | "none"`
+  - `standard_abbrev` / `dst_abbrev`
 - `ntp_sync_mode = "never" | "always" | "auto" | "pin"`
 - `ntp_min_year` for `auto` mode
 - `ntp_trigger_pin`, `ntp_trigger_active_high`, `ntp_trigger_pull` for `pin` mode
@@ -115,9 +120,8 @@ python tools/udp_receiver.py --host 0.0.0.0 --port 9999
 
 Note:
 - Export is sent on each autonomous acquisition cycle.
-- Export payloads keep `timestamp` as Unix epoch and also include a Paris-local formatted datetime:
-  - `datetime_paris`: local date/time in Paris
-  - `timezone`: `CET` or `CEST` depending on daylight saving time
+- Export payloads keep `timestamp` as Unix epoch.
+- Local timezone rendering is now only used on the Pico display and web UI.
 
 ### MQTT (publish through broker)
 
@@ -210,8 +214,6 @@ Quick troubleshooting:
 
 Timestamp fields in exported JSON:
 - `timestamp`: Unix epoch, preserved for machine processing and compatibility
-- `datetime_paris`: Paris local time rendered from the same instant
-- `timezone`: `CET` in winter, `CEST` in summer
 
 ## Serial Port and Baud Rate
 
@@ -254,8 +256,6 @@ mosquitto_sub -h 192.168.1.52 -p 1883 -t weather/sensors -C 1| python -m json.to
   "humidity_pct": 59.54,
   "rain_mm": 0.0,
   "timestamp": 1771428856,
-  "datetime_paris": "2026-02-19 16:20:56",
-  "timezone": "CET",
   "rain_tips": 0,
   "wind_dir_deg": 270.0,
   "wind_speed_kmh": 0.0,

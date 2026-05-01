@@ -98,6 +98,14 @@ EXPORTS = {
 }
 
 APP = {
+    "timezone": {
+        "name": "Europe/Paris",
+        "standard_offset_minutes": 60,
+        "dst_offset_minutes": 120,
+        "dst_rule": "eu",  # "eu" or "none"
+        "standard_abbrev": "CET",
+        "dst_abbrev": "CEST",
+    },
     # NTP policy:
     # - "never": never sync from NTP
     # - "always": sync at every boot
@@ -109,10 +117,25 @@ APP = {
     "ntp_trigger_active_high": True,
     "ntp_trigger_pull": "up",  # "up", "down", or None
     "use_ntp": True,  # Legacy compatibility; ignored when ntp_sync_mode is set.
-    # "acquisition_interval_seconds": 10,
-    # "aggregation_interval_seconds": 60,
-    # "web_refresh_seconds": 10,
-    "acquisition_interval_seconds": 60,
-    "aggregation_interval_seconds": 3600,
-    "web_refresh_seconds": 60,
+    "timing_profile": "test",  # "test" or "prod"
+    "timing_profiles": {
+        "test": {
+            "acquisition_interval_seconds": 10,
+            "aggregation_interval_seconds": 60,
+            "web_refresh_seconds": 10,
+        },
+        "prod": {
+            "acquisition_interval_seconds": 60,
+            "aggregation_interval_seconds": 3600,
+            "web_refresh_seconds": 60,
+        },
+    },
 }
+
+_timing_profile_name = APP.get("timing_profile", "prod")
+_timing_profiles = APP.get("timing_profiles", {})
+_timing_profile = _timing_profiles.get(_timing_profile_name, _timing_profiles.get("prod", {}))
+
+APP["acquisition_interval_seconds"] = _timing_profile.get("acquisition_interval_seconds", 60)
+APP["aggregation_interval_seconds"] = _timing_profile.get("aggregation_interval_seconds", 3600)
+APP["web_refresh_seconds"] = _timing_profile.get("web_refresh_seconds", 60)
