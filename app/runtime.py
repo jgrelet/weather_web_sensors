@@ -1,11 +1,17 @@
 import gc
+import os
 import socket
 import time
 import ntptime
 
+try:
+    import ujson as json
+except ImportError:
+    import json
+
 from machine import I2C, Pin, RTC
 
-from wlan import set_wlan
+from wlan import set_wlan, start_wlan, stop_wlan, wlan_ip
 from config import APP, EXPORTS, SENSORS, TRANSPORT_MODE
 from sensors import (
     AHT20Sensor,
@@ -29,6 +35,11 @@ from app.exporters import (
 from app.stats_buffer import CircularStatsBuffer
 from app.timezone_utils import format_datetime, get_timezone_config, localtime_from_utc, timezone_name
 from app.web import render_html
+
+
+REMOTE_CONFIG_PATH = "data/remote_config.json"
+REMOTE_WIFI_CONNECT_TIMEOUT_MS = 20000
+REMOTE_WIFI_DEFAULT_DURATION_SECONDS = 900
 
 
 def _bcd_to_dec(value):
@@ -268,6 +279,29 @@ def _send_redirect(conn, location="/"):
     conn.sendall(headers.encode("utf-8"))
 
 
+def _open_http_server(ip):
+    bind_addr = socket.getaddrinfo("0.0.0.0", 80)[0][-1]
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    except Exception:
+        pass
+    server.bind(bind_addr)
+    server.listen(5)
+    server.settimeout(0.1)
+    print("HTTP server ready on http://{}".format(ip))
+    print("HTTP bind address:", bind_addr)
+    return server
+
+
+def _close_http_server(server):
+    if server:
+        try:
+            server.close()
+        except Exception:
+            pass
+
+
 def _path_only(path):
     if not path:
         return "/"
@@ -420,6 +454,44 @@ def _buffer_capacity(sensor_interval_ms, aggregation_interval_ms):
     return max(1, (aggregation_interval_ms + sensor_interval_ms - 1) // sensor_interval_ms)
 
 
+def _profile_timing(profile_name):
+    profiles = APP.get("timing_profiles", {})
+    if profile_name not in profiles:
+        raise ValueError("unsupported profile: {}".format(profile_name))
+    profile = profiles[profile_name]
+    acquisition_ms = _interval_ms(profile.get("acquisition_interval_seconds"), 60)
+    aggregation_ms = _interval_ms(profile.get("aggregation_interval_seconds"), 3600)
+    if aggregation_ms < acquisition_ms:
+        aggregation_ms = acquisition_ms
+    return acquisition_ms, aggregation_ms
+
+
+def _load_remote_profile():
+    default_profile = APP.get("timing_profile", "prod")
+    try:
+        with open(REMOTE_CONFIG_PATH, "r") as config_file:
+            remote_config = json.load(config_file)
+        profile_name = remote_config.get("timing_profile", default_profile)
+        _profile_timing(profile_name)
+        return profile_name
+    except OSError:
+        return default_profile
+    except Exception as exc:
+        print("Remote configuration ignored:", exc)
+        return default_profile
+
+
+def _save_remote_profile(profile_name):
+    temporary_path = REMOTE_CONFIG_PATH + ".tmp"
+    with open(temporary_path, "w") as config_file:
+        json.dump({"timing_profile": profile_name}, config_file)
+    try:
+        os.remove(REMOTE_CONFIG_PATH)
+    except OSError:
+        pass
+    os.rename(temporary_path, REMOTE_CONFIG_PATH)
+
+
 def _perform_acquisition(sensors, display):
     started_ms = time.ticks_ms()
     reading = sensors.read_all()
@@ -457,6 +529,136 @@ def _build_web_reading(last_reading, aggregate_reading=None):
     return snapshot
 
 
+def _remote_status_payload(runtime_state):
+    remaining_seconds = None
+    disable_at_ms = runtime_state.get("wifi_disable_at_ms")
+    if disable_at_ms is not None:
+        remaining_ms = time.ticks_diff(disable_at_ms, time.ticks_ms())
+        remaining_seconds = max(0, remaining_ms // 1000)
+    return {
+        "transport": "hc-12",
+        "profile": runtime_state["profile"],
+        "acquisition_interval_seconds": runtime_state["acquisition_interval_ms"] // 1000,
+        "aggregation_interval_seconds": runtime_state["aggregation_interval_ms"] // 1000,
+        "wifi_enabled": runtime_state.get("wifi_state") == "active",
+        "wifi_state": runtime_state.get("wifi_state", "inactive"),
+        "wifi_ip": runtime_state.get("wifi_ip"),
+        "wifi_remaining_seconds": remaining_seconds,
+        "rtc_valid": bool(runtime_state["rtc_valid"]),
+        "pico_time": time.time(),
+    }
+
+
+def _handle_remote_command(
+    line,
+    hc12_exporter,
+    rtc_cfg,
+    runtime_state,
+):
+    profile_changed = False
+    if not line.startswith("CMD "):
+        print("Ignoring unsupported HC-12 control line:", line[:32])
+        return False
+
+    command_id = None
+    action = None
+    try:
+        command = json.loads(line[4:].strip())
+        if not isinstance(command, dict):
+            raise ValueError("command must be a JSON object")
+        command_id = command.get("id")
+        action = command.get("action")
+        if not command_id or not action:
+            raise ValueError("command id and action are required")
+
+        result = _remote_status_payload(runtime_state)
+        if action == "set_time":
+            utc_epoch = int(command.get("utc"))
+            dt = time.gmtime(utc_epoch)
+            RTC().datetime((dt[0], dt[1], dt[2], dt[6], dt[3], dt[4], dt[5], 0))
+            if not _save_rtc_to_ds3231(SENSORS["i2c"], rtc_cfg):
+                raise OSError("unable to write DS3231")
+            runtime_state["rtc_valid"] = _is_datetime_valid(
+                APP.get("ntp_min_year", 2024)
+            )
+            result = _remote_status_payload(runtime_state)
+        elif action == "set_profile":
+            profile_name = str(command.get("profile", "")).lower()
+            acquisition_ms, aggregation_ms = _profile_timing(profile_name)
+            _save_remote_profile(profile_name)
+            runtime_state["profile"] = profile_name
+            runtime_state["acquisition_interval_ms"] = acquisition_ms
+            runtime_state["aggregation_interval_ms"] = aggregation_ms
+            profile_changed = True
+            result = _remote_status_payload(runtime_state)
+        elif action == "set_wifi":
+            enabled = bool(command.get("enabled", False))
+            if enabled:
+                duration_seconds = int(
+                    command.get("duration_seconds", REMOTE_WIFI_DEFAULT_DURATION_SECONDS)
+                )
+                if duration_seconds < 60 or duration_seconds > 3600:
+                    raise ValueError("Wi-Fi duration must be between 60 and 3600 seconds")
+                runtime_state["wifi_wlan"] = start_wlan()
+                runtime_state["wifi_state"] = "connecting"
+                runtime_state["wifi_ip"] = None
+                runtime_state["wifi_connect_deadline_ms"] = time.ticks_add(
+                    time.ticks_ms(), REMOTE_WIFI_CONNECT_TIMEOUT_MS
+                )
+                runtime_state["wifi_duration_seconds"] = duration_seconds
+                runtime_state["wifi_pending_command"] = {
+                    "id": command_id,
+                    "action": action,
+                }
+                print("Remote Wi-Fi connection requested for", duration_seconds, "seconds")
+            else:
+                stop_wlan(runtime_state.get("wifi_wlan"))
+                runtime_state["wifi_wlan"] = None
+                runtime_state["wifi_state"] = "inactive"
+                runtime_state["wifi_ip"] = None
+                runtime_state["wifi_disable_at_ms"] = None
+                runtime_state["wifi_server_close_requested"] = True
+                print("Remote Wi-Fi disabled")
+            result = _remote_status_payload(runtime_state)
+        elif action != "get_status":
+            raise ValueError("unsupported action: {}".format(action))
+
+        response = {
+            "id": command_id,
+            "action": action,
+            "ok": True,
+            "result": result,
+        }
+    except Exception as exc:
+        response = {
+            "id": command_id,
+            "action": action,
+            "ok": False,
+            "error": str(exc),
+        }
+
+    hc12_exporter.write_control("ACK", response)
+    print("HC-12 command response:", response)
+    return profile_changed
+
+
+def _send_wifi_completion(hc12_exporter, runtime_state, ok, error=None):
+    pending = runtime_state.get("wifi_pending_command")
+    if not pending:
+        return
+    response = {
+        "id": pending["id"],
+        "action": pending["action"],
+        "ok": ok,
+        "result": _remote_status_payload(runtime_state),
+    }
+    if error:
+        response["error"] = error
+    hc12_exporter.write_control("ACK", response)
+    runtime_state["wifi_pending_command"] = None
+    print("HC-12 Wi-Fi completion response:", response)
+
+
 def main():
     gc.collect()
     led = Pin("LED", Pin.OUT)
@@ -477,7 +679,21 @@ def main():
     hc12_cfg = EXPORTS.get("hc12", {})
     udp_cfg = EXPORTS.get("udp", {})
     lorawan_cfg = EXPORTS["lorawan"]
+    profile_name = _load_remote_profile()
+    acquisition_interval_ms, aggregation_interval_ms = _profile_timing(profile_name)
+    APP["acquisition_interval_seconds"] = acquisition_interval_ms // 1000
+    APP["aggregation_interval_seconds"] = aggregation_interval_ms // 1000
     _print_export_modes(transport_mode, mqtt_cfg, serial_cfg, hc12_cfg, udp_cfg, lorawan_cfg)
+    hc12_exporter = Hc12Exporter(
+        enabled=transport_mode == "hc-12" and hc12_cfg.get("enabled", False),
+        uart_id=hc12_cfg.get("uart_id", 0),
+        tx_pin=hc12_cfg.get("tx_pin", 0),
+        rx_pin=hc12_cfg.get("rx_pin", 1),
+        baudrate=hc12_cfg.get("baudrate", 9600),
+        prefix=hc12_cfg.get("prefix", "JSON"),
+        chunk_size=hc12_cfg.get("chunk_size", 64),
+        chunk_delay_ms=hc12_cfg.get("chunk_delay_ms", 75),
+    )
     exporters = ExportManager(
         [
             MqttExporter(
@@ -497,16 +713,7 @@ def main():
                 enabled=serial_cfg.get("enabled", False),
                 prefix=serial_cfg.get("prefix", "JSON"),
             ),
-            Hc12Exporter(
-                enabled=transport_mode == "hc-12" and hc12_cfg.get("enabled", False),
-                uart_id=hc12_cfg.get("uart_id", 0),
-                tx_pin=hc12_cfg.get("tx_pin", 0),
-                rx_pin=hc12_cfg.get("rx_pin", 1),
-                baudrate=hc12_cfg.get("baudrate", 9600),
-                prefix=hc12_cfg.get("prefix", "JSON"),
-                chunk_size=hc12_cfg.get("chunk_size", 64),
-                chunk_delay_ms=hc12_cfg.get("chunk_delay_ms", 75),
-            ),
+            hc12_exporter,
             UdpExporter(
                 enabled=udp_cfg.get("enabled", False),
                 host=udp_cfg.get("host"),
@@ -567,21 +774,9 @@ def main():
 
     server = None
     if wifi_enabled:
-        bind_addr = socket.getaddrinfo("0.0.0.0", 80)[0][-1]
-        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        try:
-            server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        except Exception:
-            pass
-        server.bind(bind_addr)
-        server.listen(5)
-        server.settimeout(1.0)
-        print("HTTP server ready on http://{}".format(ip))
-        print("HTTP bind address:", bind_addr)
+        server = _open_http_server(ip)
     else:
         print("HTTP server disabled in HC-12 mode")
-    acquisition_interval_ms = _sensor_acquisition_interval_ms(APP)
-    aggregation_interval_ms = _aggregation_interval_ms(APP, acquisition_interval_ms)
     buffer_capacity = _buffer_capacity(acquisition_interval_ms, aggregation_interval_ms)
     print("Sensor acquisition interval:", acquisition_interval_ms, "ms")
     print("Aggregation interval:", aggregation_interval_ms, "ms")
@@ -593,6 +788,18 @@ def main():
             display.show_boot(["HC-12 ready", "Auto acquire"])
 
     stats_buffer = CircularStatsBuffer(buffer_capacity)
+    runtime_state = {
+        "profile": profile_name,
+        "acquisition_interval_ms": acquisition_interval_ms,
+        "aggregation_interval_ms": aggregation_interval_ms,
+        "rtc_valid": rtc_valid,
+        "wifi_state": "active" if wifi_enabled else "inactive",
+        "wifi_ip": ip if wifi_enabled else None,
+        "wifi_wlan": wlan,
+        "wifi_disable_at_ms": None,
+        "wifi_pending_command": None,
+        "wifi_server_close_requested": False,
+    }
     last_reading = None
     last_aggregate_reading = None
     web_reading = None
@@ -670,6 +877,89 @@ def main():
                     )
                     export_results = exporters.publish_due(last_aggregate_reading)
                     _log_export_results(export_results, "aggregated")
+
+            if transport_mode == "hc-12":
+                for control_line in hc12_exporter.read_lines():
+                    profile_changed = _handle_remote_command(
+                        control_line,
+                        hc12_exporter,
+                        rtc_cfg,
+                        runtime_state,
+                    )
+                    rtc_valid = runtime_state["rtc_valid"]
+                    if profile_changed:
+                        acquisition_interval_ms = runtime_state["acquisition_interval_ms"]
+                        aggregation_interval_ms = runtime_state["aggregation_interval_ms"]
+                        stats_buffer = CircularStatsBuffer(
+                            _buffer_capacity(acquisition_interval_ms, aggregation_interval_ms)
+                        )
+                        aggregation_started_ms = now_ms
+                        print(
+                            "Timing profile changed:",
+                            runtime_state["profile"],
+                            acquisition_interval_ms,
+                            aggregation_interval_ms,
+                        )
+
+                if runtime_state.get("wifi_server_close_requested"):
+                    _close_http_server(server)
+                    server = None
+                    runtime_state["wifi_server_close_requested"] = False
+
+                wifi_state = runtime_state.get("wifi_state")
+                remote_wlan = runtime_state.get("wifi_wlan")
+                if wifi_state == "connecting":
+                    connected_ip = wlan_ip(remote_wlan)
+                    if connected_ip:
+                        runtime_state["wifi_state"] = "active"
+                        runtime_state["wifi_ip"] = connected_ip
+                        runtime_state["wifi_disable_at_ms"] = time.ticks_add(
+                            time.ticks_ms(),
+                            runtime_state.get(
+                                "wifi_duration_seconds",
+                                REMOTE_WIFI_DEFAULT_DURATION_SECONDS,
+                            )
+                            * 1000,
+                        )
+                        try:
+                            server = _open_http_server(connected_ip)
+                            _send_wifi_completion(hc12_exporter, runtime_state, True)
+                        except Exception as exc:
+                            stop_wlan(remote_wlan)
+                            runtime_state["wifi_state"] = "error"
+                            runtime_state["wifi_ip"] = None
+                            runtime_state["wifi_disable_at_ms"] = None
+                            _send_wifi_completion(
+                                hc12_exporter,
+                                runtime_state,
+                                False,
+                                "HTTP server failed: {}".format(exc),
+                            )
+                    elif time.ticks_diff(
+                        time.ticks_ms(),
+                        runtime_state.get("wifi_connect_deadline_ms", time.ticks_ms()),
+                    ) >= 0:
+                        stop_wlan(remote_wlan)
+                        runtime_state["wifi_state"] = "error"
+                        runtime_state["wifi_ip"] = None
+                        _send_wifi_completion(
+                            hc12_exporter,
+                            runtime_state,
+                            False,
+                            "Wi-Fi connection timeout",
+                        )
+                elif wifi_state == "active" and runtime_state.get("wifi_disable_at_ms") is not None:
+                    if time.ticks_diff(
+                        time.ticks_ms(), runtime_state["wifi_disable_at_ms"]
+                    ) >= 0:
+                        _close_http_server(server)
+                        server = None
+                        stop_wlan(remote_wlan)
+                        runtime_state["wifi_wlan"] = None
+                        runtime_state["wifi_state"] = "inactive"
+                        runtime_state["wifi_ip"] = None
+                        runtime_state["wifi_disable_at_ms"] = None
+                        print("Remote Wi-Fi session expired")
 
             if not server:
                 time.sleep_ms(100)

@@ -137,6 +137,7 @@ class Hc12Exporter(BaseExporter):
         self.chunk_size = max(1, int(chunk_size))
         self.chunk_delay_ms = max(0, int(chunk_delay_ms))
         self._uart = None
+        self._rx_buffer = bytearray()
 
     def _connect(self):
         if UART is None or Pin is None:
@@ -173,6 +174,36 @@ class Hc12Exporter(BaseExporter):
             offset = chunk_end
             if offset < len(data):
                 self._sleep_between_chunks()
+
+    def write_control(self, prefix, payload):
+        uart = self._connect()
+        message = json.dumps(payload)
+        line = "{} {}\n".format(prefix, message)
+        data = line.encode() if not isinstance(line, bytes) else line
+        self._write_all(uart, data)
+
+    def read_lines(self, max_buffer_bytes=2048):
+        uart = self._connect()
+        if uart.any():
+            chunk = uart.read()
+            if chunk:
+                self._rx_buffer.extend(chunk)
+
+        lines = []
+        while True:
+            newline_index = self._rx_buffer.find(b"\n")
+            if newline_index < 0:
+                break
+            raw_line = bytes(self._rx_buffer[:newline_index])
+            self._rx_buffer = self._rx_buffer[newline_index + 1 :]
+            decoded = raw_line.decode("utf-8", "ignore").strip()
+            if decoded:
+                lines.append(decoded)
+
+        if len(self._rx_buffer) > max_buffer_bytes:
+            print("HC-12 RX buffer discarded:", len(self._rx_buffer), "bytes")
+            self._rx_buffer = bytearray()
+        return lines
 
     def publish(self, payload, route=None):
         if not self.enabled:

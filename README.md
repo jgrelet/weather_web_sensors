@@ -348,6 +348,19 @@ mosquitto_sub -h 192.168.1.52 -p 1883 -t weather/sensors -C 1| python -m json.to
 
 ## Technical appendix
 
+### Remote configuration over HC-12
+
+When `TRANSPORT_MODE = "hc-12"`, the Raspberry Pi can send newline-delimited
+`CMD` JSON control messages. The Pico returns matching `ACK` JSON responses without
+stopping weather exports. Supported operations are status retrieval, RTC and DS3231
+time update, persistent Test/Production timing-profile selection, and temporary
+Wi-Fi diagnostic access.
+
+Temporary Wi-Fi does not replace HC-12 as the weather transport. Connection runs
+without blocking sensor acquisition, the Pico HTTP server starts after an IP address
+is assigned, and the session stops automatically after 15 minutes. The Raspberry Pi
+kiosk displays the assigned IP and can stop the session early.
+
 ### Resetting Flash memory
 
 For Pico-series devices, BOOTSEL mode lives in read-only memory inside the RP2040 or RP2350 chip, and can’t be overwritten accidentally. No matter what, if you hold down the BOOTSEL button when you plug in your Pico, it will appear as a drive onto which you can drag a new UF2 file. There is no way to brick the board through software. However, there are some circumstances where you might want to make sure your flash memory is empty. You can do this by dragging and dropping a special UF2 flash_nuke.uf2 binary onto your Pico when it is in mass storage mode.
