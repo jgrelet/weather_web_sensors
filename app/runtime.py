@@ -504,6 +504,8 @@ def main():
                 rx_pin=hc12_cfg.get("rx_pin", 1),
                 baudrate=hc12_cfg.get("baudrate", 9600),
                 prefix=hc12_cfg.get("prefix", "JSON"),
+                chunk_size=hc12_cfg.get("chunk_size", 64),
+                chunk_delay_ms=hc12_cfg.get("chunk_delay_ms", 75),
             ),
             UdpExporter(
                 enabled=udp_cfg.get("enabled", False),
@@ -708,4 +710,3 @@ def main():
                 continue
             print("HTTP server OSError:", exc)
             time.sleep_ms(100)
-

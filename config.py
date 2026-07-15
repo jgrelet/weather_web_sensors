@@ -1,4 +1,4 @@
-TRANSPORT_MODE = "wifi"  # "wifi" or "hc-12"
+TRANSPORT_MODE = "hc-12"  # "wifi" or "hc-12"
 
 SENSORS = {
     # Primary weather station bus (I2C1): SSD1306 + DS3231 + BME680
@@ -95,6 +95,8 @@ EXPORTS = {
         "rx_pin": 1,
         "baudrate": 9600,
         "prefix": "JSON",
+        "chunk_size": 64,
+        "chunk_delay_ms": 75,
     },
     "udp": {
         "enabled": False,

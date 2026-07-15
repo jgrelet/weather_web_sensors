@@ -8,6 +8,8 @@ try:
 except ImportError:
     import socket
 
+import time
+
 try:
     from umqtt.simple import MQTTClient
 except ImportError:
@@ -123,6 +125,8 @@ class Hc12Exporter(BaseExporter):
         rx_pin=1,
         baudrate=9600,
         prefix="JSON",
+        chunk_size=64,
+        chunk_delay_ms=75,
     ):
         self.enabled = enabled
         self.uart_id = uart_id
@@ -130,6 +134,8 @@ class Hc12Exporter(BaseExporter):
         self.rx_pin = rx_pin
         self.baudrate = baudrate
         self.prefix = prefix
+        self.chunk_size = max(1, int(chunk_size))
+        self.chunk_delay_ms = max(0, int(chunk_delay_ms))
         self._uart = None
 
     def _connect(self):
@@ -145,6 +151,29 @@ class Hc12Exporter(BaseExporter):
         )
         return self._uart
 
+    def _sleep_between_chunks(self):
+        if not self.chunk_delay_ms:
+            return
+        if hasattr(time, "sleep_ms"):
+            time.sleep_ms(self.chunk_delay_ms)
+        else:
+            time.sleep(self.chunk_delay_ms / 1000.0)
+
+    def _write_all(self, uart, data):
+        offset = 0
+        while offset < len(data):
+            chunk_end = min(offset + self.chunk_size, len(data))
+            chunk = data[offset:chunk_end]
+            chunk_offset = 0
+            while chunk_offset < len(chunk):
+                written = uart.write(chunk[chunk_offset:])
+                if not written:
+                    raise OSError("HC-12 UART write stalled")
+                chunk_offset += written
+            offset = chunk_end
+            if offset < len(data):
+                self._sleep_between_chunks()
+
     def publish(self, payload, route=None):
         if not self.enabled:
             return False
@@ -154,7 +183,8 @@ class Hc12Exporter(BaseExporter):
             prefix = route.get("prefix", prefix)
         line = "{} {}\n".format(prefix, message) if prefix else "{}\n".format(message)
         uart = self._connect()
-        uart.write(line.encode() if not isinstance(line, bytes) else line)
+        data = line.encode() if not isinstance(line, bytes) else line
+        self._write_all(uart, data)
         return True
 
 
