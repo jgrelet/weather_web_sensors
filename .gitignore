@@ -178,3 +178,5 @@ cython_debug/
 .micropico
 extensions.json
 settings.json
+# Local SSH memo for RPi (contains sensitive hints; intentionally ignored)
+rpi3-meteo/docs/memo-ssh.md

@@ -76,6 +76,28 @@ Behavior:
 - At boot, time is loaded from the DS3231.
 - If NTP sync is performed, time is written back to the DS3231.
 
+### Time strategy for HC-12 deployment
+
+The weather node does not require garden Wi-Fi during normal HC-12 operation. At
+every boot it loads the battery-backed DS3231 into the Pico RTC, then timestamps
+radio payloads from that clock.
+
+Before moving the node to its final location:
+
+1. run it within Wi-Fi range with `TRANSPORT_MODE = "wifi"` and
+   `ntp_sync_mode = "always"`;
+2. confirm `NTP sync OK`, which also writes the corrected time to the DS3231;
+3. restore `TRANSPORT_MODE = "hc-12"` and `ntp_sync_mode = "auto"`, upload the
+   configuration and confirm `RTC valid: True` after restart;
+4. install a healthy DS3231 backup battery before placing the node in the garden.
+
+In `auto` mode, a plausible year is considered valid; this detects a lost clock but
+does not correct normal RTC drift. Periodically repeat the Wi-Fi maintenance sync
+until time synchronization from the Raspberry Pi over the bidirectional HC-12 link
+is implemented. If the DS3231 becomes invalid while HC-12 mode has disabled Wi-Fi,
+the current firmware reports that NTP was skipped and cannot correct the clock by
+itself.
+
 ## Web UI
 
 - Summary cards (weather + wind + rain)
@@ -97,6 +119,64 @@ Behavior:
 - The default acquisition period follows `APP["web_refresh_seconds"]`.
 - You can override it with `APP["acquisition_interval_seconds"]` in `config.py`.
 - The remote browser is now optional and only displays the latest cached data.
+
+## Transport Mode
+
+`config.py` exposes `TRANSPORT_MODE`, which selects the production transmission path:
+
+```python
+TRANSPORT_MODE = "wifi"  # "wifi" or "hc-12"
+```
+
+- `wifi`: publish through Wi-Fi/MQTT using `EXPORTS["mqtt"]`.
+- `hc-12`: publish through UART0 to an HC-12 module using `EXPORTS["hc12"]`.
+
+Long JSON lines are written in paced chunks. `EXPORTS["hc12"]["chunk_size"]`
+defaults to 64 bytes and `chunk_delay_ms` to 75 ms so the HC-12 radio buffer is not
+overrun by a continuous 9600-baud UART write. Keep the final newline: the Raspberry
+Pi bridge uses it to detect a complete payload.
+
+Keep this value aligned with `RPI3_METEO_TRANSMISSION_MODE` in the Raspberry Pi
+`rpi3-meteo` project. The Raspberry Pi application still consumes Mosquitto;
+in HC-12 mode the Pi bridges UART lines back into MQTT.
+
+HC-12 wiring for Pico2-W:
+
+- Pico `GP0` / UART0 TX, physical pin `1` -> HC-12 `RXD`
+- Pico `GP1` / UART0 RX, physical pin `2` <- HC-12 `TXD`
+- Pico `GND`, for example physical pin `3` or `38` -> HC-12 `GND`
+- HC-12 `VCC` -> stable `3V3(OUT)` or external 3.3V with common ground
+- HC-12 `SET` can stay unconnected for transparent mode
+
+Before enabling app integration, run `tools/hc12_pico_test.py` on the Pico and `tools/hc12_rpi_test.py` on the Raspberry Pi to validate send, receive, and echo in both directions.
+
+### HC-12 bidirectional test
+
+1. On the Pico, run the test script in MicroPython:
+
+```python
+import tools.hc12_pico_test as test
+# or run the script after copying it to the Pico filesystem
+```
+
+2. On the Raspberry Pi, run the new helper script:
+
+```bash
+python3 tools/hc12_rpi_test.py --port /dev/serial0 --baudrate 9600
+```
+
+3. Expected behavior:
+- The Pico sends `PING_PICO` every 2 seconds.
+- The Raspberry Pi sends `PING_RPI` every 2 seconds.
+- Each side replies with `ACK_PICO` or `ACK_RPI` to incoming ping lines.
+- Both sides should print received and sent messages.
+
+4. Verify wiring:
+- Pico `GP0` -> HC-12 `RXD`
+- Pico `GP1` <- HC-12 `TXD`
+- Shared ground between Pico and HC-12.
+
+5. If you only want to verify receive/transmit once, watch the `received:` lines on both sides.
 
 ## Export Visualization (UDP and MQTT)
 
@@ -282,3 +362,42 @@ https://datasheets.raspberrypi.com/soft/flash_nuke.uf2
 <img width="320" height="245" alt="image" src="https://github.com/user-attachments/assets/e578ffde-41ab-4811-afb2-333b8daddb3b" />
 
 The RTC module has a potential problem. The module is designed to be used with a rechargeable lithium battery via a very simple charging circuit (a diode and a resistor powered by 5 V). If you are using a CR2032 battery, simply desolder the diode to prevent the battery from charging, which could damage or even cause it to explode.
+
+## MicroPython over SSH (Raspberry Pi)
+
+If you develop remotely on a Raspberry Pi (for example a RPi4 running the companion `rpi3-meteo` service), the recommended workflow is to keep your SSH private key protected by a passphrase and use an SSH agent to cache the unlocked key during your session. This avoids repeatedly entering the passphrase while preserving good security.
+
+Recommended steps (Option B - keep passphrase and cache it):
+
+- Start the agent and add your key (enter the passphrase once per session):
+
+```bash
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_ed25519
+```
+
+- Make SSH automatically add keys to the agent by adding to `~/.ssh/config` (create if missing):
+
+```text
+Host *
+  AddKeysToAgent yes
+  IdentityFile ~/.ssh/id_ed25519
+```
+
+- Persist the unlocked key across logins on Debian/Ubuntu using `keychain` (optional):
+
+```bash
+sudo apt install keychain
+# add to ~/.profile or ~/.bash_profile:
+eval "$(keychain --eval --agents ssh id_ed25519)"
+```
+
+- VS Code Remote SSH tips:
+  - Ensure VS Code forwards the local SSH agent: enable `remote.SSH.enableAgentForwarding` in settings when connecting through a jump host.
+  - Start `ssh-agent` and `ssh-add` on the machine where you run VS Code (your workstation) so the key is available to the Remote-SSH extension.
+
+Note about security:
+- Do not remove the passphrase from your private key unless you fully understand the security consequences. Removing it permanently makes the key usable by anyone who can access the file.
+
+Local memo (non-versioned):
+- For convenience you can keep an operational memo on the Pi at `rpi3-meteo/docs/memo-ssh.md`. This file contains step-by-step commands and reminders and is intended to remain untracked for security reasons. See the repository `.gitignore` for the ignored path.

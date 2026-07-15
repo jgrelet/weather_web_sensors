@@ -6,7 +6,7 @@ import ntptime
 from machine import I2C, Pin, RTC
 
 from wlan import set_wlan
-from config import APP, EXPORTS, SENSORS
+from config import APP, EXPORTS, SENSORS, TRANSPORT_MODE
 from sensors import (
     AHT20Sensor,
     BME680Sensor,
@@ -20,6 +20,7 @@ from sensors import (
 from app.display import Display
 from app.exporters import (
     ExportManager,
+    Hc12Exporter,
     LoRaWanExporter,
     MqttExporter,
     SerialExporter,
@@ -297,8 +298,9 @@ def _manual_ntp_sync(i2c_cfg, rtc_cfg, tz_cfg):
         return "NTP sync failed: {}".format(exc)
 
 
-def _print_export_modes(mqtt_cfg, serial_cfg, udp_cfg, lorawan_cfg):
+def _print_export_modes(transport_mode, mqtt_cfg, serial_cfg, hc12_cfg, udp_cfg, lorawan_cfg):
     print("Transmission modes:")
+    print("Selected transport:", transport_mode)
     if mqtt_cfg.get("enabled", False):
         topic = mqtt_cfg.get("topic", "weather/sensors")
         print(
@@ -313,6 +315,20 @@ def _print_export_modes(mqtt_cfg, serial_cfg, udp_cfg, lorawan_cfg):
         )
     else:
         print(" - MQTT: OFF")
+
+    if hc12_cfg.get("enabled", False) and transport_mode == "hc-12":
+        print(
+            " - HC-12: ON -> UART{} TX=GP{} RX=GP{} baud={} raw_prefix={} aggregated_prefix={}".format(
+                hc12_cfg.get("uart_id", 0),
+                hc12_cfg.get("tx_pin", 0),
+                hc12_cfg.get("rx_pin", 1),
+                hc12_cfg.get("baudrate", 9600),
+                _serial_raw_prefix(hc12_cfg.get("prefix", "JSON")),
+                hc12_cfg.get("prefix", "JSON"),
+            )
+        )
+    else:
+        print(" - HC-12: OFF")
 
     if udp_cfg.get("enabled", False):
         print(
@@ -453,15 +469,19 @@ def main():
             display = Display(i2c, addr=display_addr, timezone_cfg=tz_cfg)
         except OSError as e:
             print("OLED init skipped:", e)
+    transport_mode = str(TRANSPORT_MODE).lower()
+    if transport_mode not in ("wifi", "hc-12"):
+        raise ValueError("TRANSPORT_MODE must be 'wifi' or 'hc-12'")
     mqtt_cfg = EXPORTS["mqtt"]
     serial_cfg = EXPORTS.get("serial", {})
+    hc12_cfg = EXPORTS.get("hc12", {})
     udp_cfg = EXPORTS.get("udp", {})
     lorawan_cfg = EXPORTS["lorawan"]
-    _print_export_modes(mqtt_cfg, serial_cfg, udp_cfg, lorawan_cfg)
+    _print_export_modes(transport_mode, mqtt_cfg, serial_cfg, hc12_cfg, udp_cfg, lorawan_cfg)
     exporters = ExportManager(
         [
             MqttExporter(
-                enabled=mqtt_cfg["enabled"],
+                enabled=transport_mode == "wifi" and mqtt_cfg["enabled"],
                 broker=mqtt_cfg["broker"],
                 topic=mqtt_cfg["topic"],
                 client_id=mqtt_cfg["client_id"],
@@ -476,6 +496,16 @@ def main():
             SerialExporter(
                 enabled=serial_cfg.get("enabled", False),
                 prefix=serial_cfg.get("prefix", "JSON"),
+            ),
+            Hc12Exporter(
+                enabled=transport_mode == "hc-12" and hc12_cfg.get("enabled", False),
+                uart_id=hc12_cfg.get("uart_id", 0),
+                tx_pin=hc12_cfg.get("tx_pin", 0),
+                rx_pin=hc12_cfg.get("rx_pin", 1),
+                baudrate=hc12_cfg.get("baudrate", 9600),
+                prefix=hc12_cfg.get("prefix", "JSON"),
+                chunk_size=hc12_cfg.get("chunk_size", 64),
+                chunk_delay_ms=hc12_cfg.get("chunk_delay_ms", 75),
             ),
             UdpExporter(
                 enabled=udp_cfg.get("enabled", False),
@@ -493,9 +523,17 @@ def main():
         display.show_boot(["Initializing...", "Weather node"])
     led.value(1)
 
-    wlan, ip = set_wlan(led)
-    if display:
-        display.show_boot(["Wifi OK"])
+    wifi_enabled = transport_mode == "wifi"
+    wlan = None
+    ip = "hc-12"
+    if wifi_enabled:
+        wlan, ip = set_wlan(led)
+        if display:
+            display.show_boot(["Wifi OK"])
+    else:
+        print("Wi-Fi skipped because TRANSPORT_MODE=hc-12")
+        if display:
+            display.show_boot(["HC-12 transport", "Wi-Fi skipped"])
 
     rtc_cfg = SENSORS.get("rtc", {})
     ntp_min_year = APP.get("ntp_min_year", 2024)
@@ -507,7 +545,7 @@ def main():
     ntp_required = _should_sync_ntp(APP, rtc_valid)
     print("NTP mode:", _resolve_ntp_mode(APP), "sync_required:", ntp_required)
     last_ntp_message = None
-    if ntp_required:
+    if ntp_required and wifi_enabled:
         try:
             ntptime.settime()
             _save_rtc_to_ds3231(SENSORS["i2c"], rtc_cfg)
@@ -522,20 +560,26 @@ def main():
             print("NTP skipped:", exc)
             if display:
                 display.show_boot(["Wifi OK", "NTP skipped"])
+    elif ntp_required:
+        print("NTP skipped because Wi-Fi is disabled in HC-12 mode")
 
     led.value(0)
 
-    bind_addr = socket.getaddrinfo("0.0.0.0", 80)[0][-1]
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    except Exception:
-        pass
-    server.bind(bind_addr)
-    server.listen(5)
-    server.settimeout(1.0)
-    print("HTTP server ready on http://{}".format(ip))
-    print("HTTP bind address:", bind_addr)
+    server = None
+    if wifi_enabled:
+        bind_addr = socket.getaddrinfo("0.0.0.0", 80)[0][-1]
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        except Exception:
+            pass
+        server.bind(bind_addr)
+        server.listen(5)
+        server.settimeout(1.0)
+        print("HTTP server ready on http://{}".format(ip))
+        print("HTTP bind address:", bind_addr)
+    else:
+        print("HTTP server disabled in HC-12 mode")
     acquisition_interval_ms = _sensor_acquisition_interval_ms(APP)
     aggregation_interval_ms = _aggregation_interval_ms(APP, acquisition_interval_ms)
     buffer_capacity = _buffer_capacity(acquisition_interval_ms, aggregation_interval_ms)
@@ -543,7 +587,10 @@ def main():
     print("Aggregation interval:", aggregation_interval_ms, "ms")
     print("Ring buffer capacity:", buffer_capacity, "samples")
     if display:
-        display.show_boot(["Wifi OK", ip, "Web ready", "Auto acquire"])
+        if wifi_enabled:
+            display.show_boot(["Wifi OK", ip, "Web ready", "Auto acquire"])
+        else:
+            display.show_boot(["HC-12 ready", "Auto acquire"])
 
     stats_buffer = CircularStatsBuffer(buffer_capacity)
     last_reading = None
@@ -557,7 +604,7 @@ def main():
         try:
             if gc.mem_free() < 102000:
                 gc.collect()
-            if not wlan.isconnected():
+            if wifi_enabled and wlan and not wlan.isconnected():
                 print("Wi-Fi disconnected, reconnecting...")
                 wlan, ip = set_wlan(led)
                 print("HTTP server still listening on http://{}".format(ip))
@@ -594,7 +641,11 @@ def main():
                 )
                 raw_route = {
                     "topic": _mqtt_raw_topic(mqtt_cfg.get("topic", "weather/sensors")),
-                    "prefix": _serial_raw_prefix(serial_cfg.get("prefix", "JSON")),
+                    "prefix": _serial_raw_prefix(
+                        hc12_cfg.get("prefix", "JSON")
+                        if transport_mode == "hc-12"
+                        else serial_cfg.get("prefix", "JSON")
+                    ),
                 }
                 export_results = exporters.publish_due(raw_payload, route=raw_route)
                 _log_export_results(export_results, "raw")
@@ -619,6 +670,10 @@ def main():
                     )
                     export_results = exporters.publish_due(last_aggregate_reading)
                     _log_export_results(export_results, "aggregated")
+
+            if not server:
+                time.sleep_ms(100)
+                continue
 
             conn, addr = server.accept()
             print("HTTP client connected:", addr)
@@ -655,4 +710,3 @@ def main():
                 continue
             print("HTTP server OSError:", exc)
             time.sleep_ms(100)
-

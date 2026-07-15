@@ -1,3 +1,5 @@
+TRANSPORT_MODE = "hc-12"  # "wifi" or "hc-12"
+
 SENSORS = {
     # Primary weather station bus (I2C1): SSD1306 + DS3231 + BME680
     "i2c": {
@@ -85,6 +87,16 @@ EXPORTS = {
     "serial": {
         "enabled": False,
         "prefix": "JSON",
+    },
+    "hc12": {
+        "enabled": True,
+        "uart_id": 0,
+        "tx_pin": 0,
+        "rx_pin": 1,
+        "baudrate": 9600,
+        "prefix": "JSON",
+        "chunk_size": 64,
+        "chunk_delay_ms": 75,
     },
     "udp": {
         "enabled": False,
