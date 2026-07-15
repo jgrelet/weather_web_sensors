@@ -13,6 +13,12 @@ try:
 except ImportError:
     MQTTClient = None
 
+try:
+    from machine import Pin, UART
+except ImportError:
+    Pin = None
+    UART = None
+
 
 class BaseExporter:
     def publish(self, payload, route=None):
@@ -105,6 +111,50 @@ class SerialExporter(BaseExporter):
             print("{} {}".format(prefix, message))
         else:
             print(message)
+        return True
+
+
+class Hc12Exporter(BaseExporter):
+    def __init__(
+        self,
+        enabled=False,
+        uart_id=0,
+        tx_pin=0,
+        rx_pin=1,
+        baudrate=9600,
+        prefix="JSON",
+    ):
+        self.enabled = enabled
+        self.uart_id = uart_id
+        self.tx_pin = tx_pin
+        self.rx_pin = rx_pin
+        self.baudrate = baudrate
+        self.prefix = prefix
+        self._uart = None
+
+    def _connect(self):
+        if UART is None or Pin is None:
+            raise RuntimeError("machine.UART is not available")
+        if self._uart:
+            return self._uart
+        self._uart = UART(
+            self.uart_id,
+            baudrate=self.baudrate,
+            tx=Pin(self.tx_pin),
+            rx=Pin(self.rx_pin),
+        )
+        return self._uart
+
+    def publish(self, payload, route=None):
+        if not self.enabled:
+            return False
+        message = json.dumps(payload)
+        prefix = self.prefix
+        if route:
+            prefix = route.get("prefix", prefix)
+        line = "{} {}\n".format(prefix, message) if prefix else "{}\n".format(message)
+        uart = self._connect()
+        uart.write(line.encode() if not isinstance(line, bytes) else line)
         return True
 
 
