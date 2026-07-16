@@ -250,7 +250,7 @@ def _build_sensor_manager():
                 scl=Pin(display_cfg.get("scl_pin", i2c_cfg["scl_pin"])),
                 freq=display_cfg.get("freq", i2c_cfg["freq"]),
             )
-    return SensorManager(sensor_list), i2c_for_display, display_addr
+    return SensorManager(sensor_list), i2c_for_display, display_addr, display_cfg
 
 
 def _send_html(conn, html):
@@ -664,11 +664,17 @@ def main():
     led = Pin("LED", Pin.OUT)
     tz_cfg = get_timezone_config(APP)
 
-    sensors, i2c, display_addr = _build_sensor_manager()
+    sensors, i2c, display_addr, display_cfg = _build_sensor_manager()
     display = None
     if i2c:
         try:
-            display = Display(i2c, addr=display_addr, timezone_cfg=tz_cfg)
+            display = Display(
+                i2c,
+                addr=display_addr,
+                timezone_cfg=tz_cfg,
+                presence_cfg=display_cfg.get("presence_sensor", {}),
+                boot_message_seconds=display_cfg.get("boot_message_seconds", 0),
+            )
         except OSError as e:
             print("OLED init skipped:", e)
     transport_mode = str(TRANSPORT_MODE).lower()
@@ -809,6 +815,8 @@ def main():
     while True:
         conn = None
         try:
+            if display:
+                display.poll()
             if gc.mem_free() < 102000:
                 gc.collect()
             if wifi_enabled and wlan and not wlan.isconnected():
@@ -854,6 +862,8 @@ def main():
                         else serial_cfg.get("prefix", "JSON")
                     ),
                 }
+                if display and transport_mode == "hc-12":
+                    display.suppress_presence_until_low()
                 export_results = exporters.publish_due(raw_payload, route=raw_route)
                 _log_export_results(export_results, "raw")
                 if time.ticks_diff(now_ms, aggregation_started_ms) >= aggregation_interval_ms:
@@ -880,6 +890,8 @@ def main():
 
             if transport_mode == "hc-12":
                 for control_line in hc12_exporter.read_lines():
+                    if display:
+                        display.suppress_presence_until_low()
                     profile_changed = _handle_remote_command(
                         control_line,
                         hc12_exporter,

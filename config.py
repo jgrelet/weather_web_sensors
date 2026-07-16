@@ -23,6 +23,17 @@ SENSORS = {
         "scl_pin": 3,
         "freq": 200000,
         "addr": 0x3C,
+        "boot_message_seconds": 2,
+        "presence_sensor": {
+            "enabled": True,
+            # RP2350 digital inputs are avoided here because erratum E9 can keep a
+            # high-impedance PIR output in the undefined voltage region.
+            "input_mode": "adc",
+            "pin": 27,
+            "threshold_volts": 2.4,
+            "pull": None,
+            "hold_seconds": 20,
+        },
     },
     "bme680": {
         "enabled": True,

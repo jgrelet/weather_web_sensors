@@ -10,7 +10,9 @@ This project is based on the IoT Starters blog post [Connecting BMP280 sensor wi
 - [DHT22](https://fr.aliexpress.com/item/32759901711.html?spm=a2g0o.order_list.order_list_main.61.1ab05e5bBsdUCw&gatewayAdapt=glo2fra): temperature and humidity
 - [AHT20 + BMP280](https://fr.aliexpress.com/item/1005008139283157.html?spm=a2g0o.order_list.order_list_main.66.1ab05e5bBsdUCw&gatewayAdapt=glo2fra): temperature and atmospheric pressure
 - [OLED SSD1306 display](https://fr.aliexpress.com/item/1005007706726114.html?spm=a2g0o.order_list.order_list_main.17.11c35e5bhBt9Yk&gatewayAdapt=glo2fra)
-- Wind sensor and rain gauge (not implemented)
+- Wind-speed sensor, wind vane and rain gauge
+- HC-12 433 MHz serial radio module
+- AM312 PIR presence sensor for OLED power control
 - [DS3231](https://www.analog.com/media/en/technical-documentation/data-sheets/ds3231.pdf) (RTC module)
 - Breadboard and [jumper wires](https://fr.aliexpress.com/item/1005007430055417.html?spm=a2g0o.order_list.order_list_main.16.11c35e5bhBt9Yk&gatewayAdapt=glo2fra)
 - [Thonny](https://thonny.org/) IDE or Visual Studio Code with [MicroPico](https://github.com/paulober/MicroPico)
@@ -38,7 +40,27 @@ This project is based on the IoT Starters blog post [Connecting BMP280 sensor wi
 
 ### Direct GPIO
 
-- `GP13`: DHT22
+- `GP13` (physical pin 17): DHT22 data
+- `GP14` (physical pin 19): wind-speed pulse input
+- `GP15` (physical pin 20): rain-gauge pulse input
+- `GP26/ADC0` (physical pin 31): analog wind-direction input
+- `GP27/ADC1` (physical pin 32): AM312 `OUT`, read with a 2.4 V ADC threshold
+
+AM312 power wiring:
+
+- Pico `3V3(OUT)` (physical pin 36) -> AM312 `VCC`
+- Pico `GND` -> AM312 `GND`
+
+### UART0 / HC-12 radio
+
+- Pico `GP0` / UART0 TX (physical pin 1) -> HC-12 `RXD`
+- Pico `GP1` / UART0 RX (physical pin 2) <- HC-12 `TXD`
+- Pico `3V3(OUT)` (physical pin 36) -> HC-12 `VCC`, or use a stable external 3.3 V supply
+- Pico `GND` -> HC-12 `GND`; an external supply must share the same ground
+- HC-12 `SET` remains unconnected in normal transparent mode
+
+The AM312 was moved from digital `GP16` to ADC `GP27` because the RP2350-E9
+high-impedance input behaviour prevented a reliable digital LOW with this module.
 
 ## Configuration
 
@@ -360,6 +382,39 @@ Temporary Wi-Fi does not replace HC-12 as the weather transport. Connection runs
 without blocking sensor acquisition, the Pico HTTP server starts after an IP address
 is assigned, and the session stops automatically after 15 minutes. The Raspberry Pi
 kiosk displays the assigned IP and can stop the session early.
+
+### Presence-controlled OLED display
+
+For autonomous operation, an AM312 PIR sensor can keep the SSD1306 OLED powered off
+when nobody is near the station. The default wiring is:
+
+- AM312 `VCC` to Pico `3V3(OUT)`;
+- AM312 `GND` to Pico `GND`;
+- AM312 `OUT` to ADC input `GP27` (physical pin 32).
+
+The settings are under `SENSORS["display"]["presence_sensor"]` in `config.py`.
+With presence control enabled, sensor acquisition and HC-12 export continue while
+the OLED is off. A rising PIR signal turns the display on with the latest reading;
+continued motion extends the configured 20-second visibility period. The GPIO
+is sampled as an ADC input with a configurable 2.4 V threshold. This avoids the
+RP2350-E9 high-impedance digital-input erratum observed with this AM312 on GP16,
+while OLED I2C operations remain in the main loop.
+Check the `VCC`, `OUT` and `GND` markings on the actual module before applying power,
+because physical pin order can vary between AM312 boards.
+
+HC-12 transmission can couple into the AM312 supply or signal and produce a false
+PIR pulse. The runtime masks presence immediately before each radio transmission and
+rearms it only after the ADC input has returned LOW. For the final installation,
+also keep PIR wiring away from the HC-12 antenna and add local supply decoupling near
+both modules; software filtering does not replace good power and RF layout.
+
+`SENSORS["display"]["boot_message_seconds"]` controls how long each OLED startup
+message remains visible. The default is two seconds.
+
+For autonomous startup, keep both `micropico.openOnStart` and
+`micropico.autoConnect` disabled in the local VS Code workspace. An automatic REPL
+connection can interrupt the already-running `main.py`. Fatal startup errors are
+printed to USB serial and trigger an automatic board reset after ten seconds.
 
 ### Resetting Flash memory
 
