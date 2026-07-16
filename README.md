@@ -11,11 +11,11 @@ This project is based on the IoT Starters blog post [Connecting BMP280 sensor wi
 - [AHT20 + BMP280](https://fr.aliexpress.com/item/1005008139283157.html?spm=a2g0o.order_list.order_list_main.66.1ab05e5bBsdUCw&gatewayAdapt=glo2fra): temperature and atmospheric pressure
 - [OLED SSD1306 display](https://fr.aliexpress.com/item/1005007706726114.html?spm=a2g0o.order_list.order_list_main.17.11c35e5bhBt9Yk&gatewayAdapt=glo2fra)
 - Wind-speed sensor, wind vane and rain gauge
-- HC-12 433 MHz serial radio module
-- AM312 PIR presence sensor for OLED power control
+- [HC-12](https://www.datasheethub.com/hc12-si4463-433mhz-wireless-rf-serial-port-module/) 433 MHz serial radio module
+- [AM312](https://www.alldatasheet.com/html-pdf/1179499/ETC2/AM312/109/1/AM312.html) PIR presence sensor for OLED power control
 - [DS3231](https://www.analog.com/media/en/technical-documentation/data-sheets/ds3231.pdf) (RTC module)
 - Breadboard and [jumper wires](https://fr.aliexpress.com/item/1005007430055417.html?spm=a2g0o.order_list.order_list_main.16.11c35e5bhBt9Yk&gatewayAdapt=glo2fra)
-- [Thonny](https://thonny.org/) IDE or Visual Studio Code with [MicroPico](https://github.com/paulober/MicroPico)
+- [Visual Studio Code](https://code.visualstudio.com/) with [Remote SSH](https://code.visualstudio.com/docs/remote/ssh) and [MicroPico](https://github.com/paulober/MicroPico) extensions
 - [MicroPython for Pico 2W](https://micropython.org/download/RPI_PICO2_W/)
 
 ## I2C and GPIO Mapping
@@ -327,6 +327,12 @@ There is no `baudrate` setting in `config.py` for this exporter, unlike a classi
 ## Hardware
 
 <img width="1543" height="803" alt="image" src="https://github.com/user-attachments/assets/e5853433-b947-4fa2-820d-d2fb01fcb56f" />
+
+First version of the prototype on a breadboard
+
+<img width="3923" height="2326" alt="20260716_171411" src="https://github.com/user-attachments/assets/26634663-5037-4245-a06f-dfd89a5126ef" />
+
+Second version of the prototype with radio transmission and IR presence detection on a breadboard
 
 ## Data visualisation
 
